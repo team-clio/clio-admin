@@ -1,0 +1,59 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Design System/Tokens" />
+
+# Design tokens
+
+## Color
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+  {[
+    ['Clio 50', '#eff6ff'], ['Clio 100', '#dbeafe'], ['Clio 500', '#3976f6'],
+    ['Clio 600', '#2563eb'], ['Clio 700', '#1d4ed8'], ['Slate 950', '#020617'],
+  ].map(([name, value]) => (
+    <div key={name} style={{ overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 12, background: 'white' }}>
+      <div style={{ height: 72, background: value }} />
+      <div style={{ padding: 12 }}><strong style={{ display: 'block', fontSize: 13 }}>{name}</strong><code style={{ color: '#64748b', fontSize: 11 }}>{value}</code></div>
+    </div>
+  ))}
+</div>
+
+## Typography
+
+<div style={{ display: 'grid', gap: 8 }}>
+  {[
+    ['Display', '페이지 및 영웅 제목', 'text-2xl font-extrabold tracking-tight'],
+    ['Heading', '카드 및 섹션 제목', 'text-sm font-extrabold'],
+    ['Body', '본문과 설명', 'text-sm leading-6'],
+    ['Label', '폼 라벨과 메타 정보', 'text-xs font-bold'],
+    ['Caption', '보조 정보', 'text-[11px] text-slate-400'],
+  ].map(([token, usage, utility]) => (
+    <div key={token} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1.4fr', gap: 16, alignItems: 'center', padding: 12, borderBottom: '1px solid #e2e8f0' }}>
+      <strong>{token}</strong><span>{usage}</span><code>{utility}</code>
+    </div>
+  ))}
+</div>
+
+## Radius & spacing
+
+- Control radius: `8px` (`rounded-lg`)
+- Surface radius: `12px` (`rounded-xl`)
+- Modal radius: `16px` (`rounded-2xl`)
+- Base spacing unit: `4px`
+- Standard control height: 약 `36–40px`
+
+## Motion
+
+<div style={{ display: 'grid', gap: 8 }}>
+  {[
+    ['Popover', '180ms', '드롭다운 진입'], ['Modal', '240ms', '모달 확대 및 진입'],
+    ['Page', '320ms', '페이지 전환'], ['List item', '360ms', '순차 목록 진입'],
+    ['Surface', '440ms', '카드 및 패널 진입'],
+  ].map(([motion, duration, usage]) => (
+    <div key={motion} style={{ display: 'grid', gridTemplateColumns: '120px 100px 1fr', gap: 16, padding: 12, borderBottom: '1px solid #e2e8f0' }}>
+      <strong>{motion}</strong><code>{duration}</code><span>{usage}</span>
+    </div>
+  ))}
+</div>
+
+기본 easing은 `cubic-bezier(.22, 1, .36, 1)`을 사용합니다.
