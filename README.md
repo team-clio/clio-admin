@@ -9,6 +9,9 @@ npm install
 npm run dev
 ```
 
+개발 서버는 `/api` 요청을 기본적으로 `http://localhost:8080`의 Clio API 서버로 전달합니다.
+다른 주소를 사용하려면 `VITE_API_BASE_URL` 환경 변수를 설정하세요.
+
 ## 명령어
 
 - `npm run dev`: 개발 서버 실행
