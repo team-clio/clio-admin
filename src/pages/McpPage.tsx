@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { BookOpen, Bot, Check, ChevronRight, Copy, Link2, Sparkles, Zap } from 'lucide-react'
 import { IconButton, PageHeader, Surface } from '../components/ui'
 
-function Tool({ name, desc, delay }) { return <div style={{ animationDelay: delay }} className="animate-item rounded-lg bg-slate-50 p-3 transition-all duration-200 hover:translate-x-1 hover:bg-slate-100"><code className="text-xs font-bold text-clio-700">{name}</code><p className="mt-1 text-[11px] text-slate-400">{desc}</p></div> }
+function Tool({ name, desc, delay }: { name: string; desc: string; delay: string }) { return <div style={{ animationDelay: delay }} className="animate-item rounded-lg bg-slate-50 p-3 transition-all duration-200 hover:translate-x-1 hover:bg-slate-100"><code className="text-xs font-bold text-clio-700">{name}</code><p className="mt-1 text-[11px] text-slate-400">{desc}</p></div> }
 
 export function McpPage() {
   const [copied, setCopied] = useState(false)

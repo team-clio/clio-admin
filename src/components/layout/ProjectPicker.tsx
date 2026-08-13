@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { Check, ChevronDown, FolderKanban, X } from 'lucide-react'
 import { Button, IconButton } from '../ui'
+import type { Dispatch, FormEvent, SetStateAction } from 'react'
+import type { Project } from '../../api/projects'
 
-export function ProjectPicker({ projects, selectedProjectId, setSelectedProjectId, loading, loadError, onCreateProject }) {
+type ProjectPickerProps = { projects: Project[]; selectedProjectId: string | null; setSelectedProjectId: Dispatch<SetStateAction<string | null>>; loading: boolean; loadError: string; onCreateProject: (name: string) => Promise<Project> }
+
+export function ProjectPicker({ projects, selectedProjectId, setSelectedProjectId, loading, loadError, onCreateProject }: ProjectPickerProps) {
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [projectName, setProjectName] = useState('')
@@ -10,7 +14,7 @@ export function ProjectPicker({ projects, selectedProjectId, setSelectedProjectI
   const [createError, setCreateError] = useState('')
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
 
-  const createProject = async (event) => {
+  const createProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const name = projectName.trim()
     if (!name) return
@@ -21,7 +25,7 @@ export function ProjectPicker({ projects, selectedProjectId, setSelectedProjectI
       setProjectName('')
       setCreating(false)
     } catch (error) {
-      setCreateError(error.message)
+      setCreateError(error instanceof Error ? error.message : '프로젝트를 만들지 못했습니다.')
     } finally {
       setSubmitting(false)
     }
