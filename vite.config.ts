@@ -10,7 +10,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
-      '/internal/api': {
+      '/external-api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/internal-api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },

@@ -5,7 +5,7 @@ import { SystemSettingsPage } from './SystemSettingsPage'
 
 export default { title: 'Pages/Clio Admin', parameters: { layout: 'fullscreen' } }
 
-export const BugReports = { render: () => <ReportsPage /> }
-export const Issues = { render: () => <IssuesPage /> }
+export const BugReports = { render: () => <ReportsPage projectId={null} /> }
+export const Issues = { render: () => <IssuesPage projectId={null} /> }
 export const McpIntegration = { render: () => <McpPage /> }
 export const SystemSettings = { render: () => <SystemSettingsPage /> }

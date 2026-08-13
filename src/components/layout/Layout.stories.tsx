@@ -5,16 +5,19 @@ import { TopBar } from './TopBar'
 
 export default { title: 'Organisms/Navigation', parameters: { layout: 'fullscreen' } }
 
-const demoProjects = [{ id: 'clio-product', name: 'Clio Product' }, { id: 'clio-web', name: 'Clio Web' }]
+const demoProjects = [
+  { id: 1, name: 'Clio Product', description: null, status: 'ACTIVE', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
+  { id: 2, name: 'Clio Web', description: null, status: 'ACTIVE', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
+]
 
 function PickerDemo() {
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(demoProjects[0].id)
-  return <div className="w-56"><ProjectPicker projects={demoProjects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} loading={false} loadError="" onCreateProject={async (name) => ({ id: name, name })} /></div>
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(demoProjects[0].id)
+  return <div className="w-56"><ProjectPicker projects={demoProjects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} loading={false} loadError="" onCreateProject={async (name) => ({ ...demoProjects[0], id: 3, name })} /></div>
 }
 
 function SidebarDemo({ page = 'reports' }: { page?: 'reports' | 'issues' | 'mcp' | 'system' }) {
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(demoProjects[0].id)
-  return <div className="relative h-[720px] bg-[#f5f6f8]"><Sidebar page={page} navigate={() => {}} projects={demoProjects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} projectsLoading={false} projectsError="" onCreateProject={async (name) => ({ id: name, name })} className="flex !absolute !bottom-0 !top-0" /></div>
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(demoProjects[0].id)
+  return <div className="relative h-[720px] bg-[#f5f6f8]"><Sidebar page={page} navigate={() => {}} projects={demoProjects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} projectsLoading={false} projectsError="" onCreateProject={async (name) => ({ ...demoProjects[0], id: 3, name })} className="flex !absolute !bottom-0 !top-0" /></div>
 }
 
 export const ProjectSelector = { parameters: { layout: 'centered' }, render: () => <PickerDemo /> }

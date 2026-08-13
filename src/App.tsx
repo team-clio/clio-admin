@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useState } from "react";
 import type { Project } from "./api/projects";
 import { createProject, getProjects } from "./api/projects";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -10,21 +10,15 @@ import { SystemSettingsPage } from "./pages/SystemSettingsPage";
 
 type Page = "reports" | "issues" | "mcp" | "system";
 
-const pages: Record<Page, ComponentType> = {
-  reports: ReportsPage,
-  issues: IssuesPage,
-  mcp: McpPage,
-  system: SystemSettingsPage,
-};
-
 function App() {
   const [page, setPage] = useState<Page>("reports");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+    null,
+  );
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState("");
-  const Page = pages[page];
 
   useEffect(() => {
     let active = true;
@@ -93,7 +87,20 @@ function App() {
           </div>
         )}
         <main className="min-w-0 flex-1 lg:ml-60">
-          <Page />
+          {page === "reports" && (
+            <ReportsPage
+              key={selectedProjectId ?? "none"}
+              projectId={selectedProjectId}
+            />
+          )}
+          {page === "issues" && (
+            <IssuesPage
+              key={selectedProjectId ?? "none"}
+              projectId={selectedProjectId}
+            />
+          )}
+          {page === "mcp" && <McpPage />}
+          {page === "system" && <SystemSettingsPage />}
         </main>
       </div>
     </div>

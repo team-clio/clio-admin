@@ -1,24 +1,54 @@
-import { useState } from 'react'
-import { ArrowRight, Bot, CheckCircle2, ChevronRight, FileText, MoreHorizontal } from 'lucide-react'
-import { issues } from '../data/mockData'
-import { Button, IconButton, PageHeader, Surface, Toolbar } from '../components/ui'
-import type { ReactNode } from 'react'
-import type { Issue, IssuePriority } from '../data/mockData'
+import { useEffect, useState } from 'react'
+import { AlertCircle, CheckCircle2, ChevronRight, FileText, LoaderCircle } from 'lucide-react'
+import { getIssue, getIssues, getIssueStats, updateIssue, type IssueDetail, type IssueStats, type IssueSummary, type IssueStatus, type Priority } from '../api/issues'
+import { Button, PageHeader, Surface } from '../components/ui'
 
-function Priority({ value }: { value: IssuePriority }) {
-  const style = { P0: 'bg-rose-50 text-rose-600 ring-rose-200', P1: 'bg-orange-50 text-orange-600 ring-orange-200', P2: 'bg-amber-50 text-amber-600 ring-amber-200' } satisfies Record<IssuePriority, string>
-  return <span className={`mt-0.5 rounded-md px-2 py-1 text-[11px] font-extrabold ring-1 ring-inset ${style[value]}`}>{value}</span>
+const statusLabel: Record<IssueStatus, string> = { OPEN: '열림', IN_PROGRESS: '진행 중', RESOLVED: '해결됨', CLOSED: '닫힘' }
+const priorityStyle: Record<Priority, string> = { P0: 'bg-rose-50 text-rose-600', P1: 'bg-orange-50 text-orange-600', P2: 'bg-amber-50 text-amber-600', P3: 'bg-blue-50 text-blue-600', P4: 'bg-slate-100 text-slate-500' }
+const formatDate = (value: string) => new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+
+export function IssuesPage({ projectId }: { projectId: number | null }) {
+  const [items, setItems] = useState<IssueSummary[]>([])
+  const [stats, setStats] = useState<IssueStats | null>(null)
+  const [selected, setSelected] = useState<IssueDetail | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (projectId === null) return
+    let active = true
+    Promise.all([getIssues(projectId), getIssueStats(projectId)]).then(([issues, nextStats]) => {
+      if (!active) return
+      setItems(issues.items); setStats(nextStats)
+      if (issues.items[0]) {
+        setDetailLoading(true)
+        getIssue(projectId, issues.items[0].id).then((detail) => active && setSelected(detail)).catch((reason) => active && setError(reason instanceof Error ? reason.message : '상세를 불러오지 못했습니다.')).finally(() => active && setDetailLoading(false))
+      }
+    }).catch((reason) => active && setError(reason instanceof Error ? reason.message : '이슈를 불러오지 못했습니다.')).finally(() => active && setLoading(false))
+    return () => { active = false }
+  }, [projectId])
+
+  const loadDetail = (issueId: number, targetProjectId = projectId) => {
+    if (targetProjectId === null) return
+    setDetailLoading(true)
+    getIssue(targetProjectId, issueId).then(setSelected).catch((reason) => setError(reason instanceof Error ? reason.message : '상세를 불러오지 못했습니다.')).finally(() => setDetailLoading(false))
+  }
+
+  const changeStatus = async (status: IssueStatus) => {
+    if (!projectId || !selected) return
+    setUpdating(true); setError('')
+    try {
+      const updated = await updateIssue(projectId, selected.id, { status })
+      setItems((current) => current.map((item) => item.id === updated.id ? updated : item))
+      setSelected((current) => current ? { ...current, ...updated } : current)
+      setStats(await getIssueStats(projectId))
+    } catch (reason) { setError(reason instanceof Error ? reason.message : '상태를 변경하지 못했습니다.') }
+    finally { setUpdating(false) }
+  }
+
+  return <div className="animate-page"><PageHeader eyebrow="PRIORITIZED QUEUE" title="이슈" description="서버에서 계산된 우선순위와 연결 버그를 확인합니다.">{stats && <div className="flex gap-3 text-xs font-bold text-slate-600"><span>열림 {stats.openIssues}</span><span>진행 {stats.inProgressIssues}</span><span>해결 {stats.resolvedIssues}</span></div>}</PageHeader><div className="p-4 lg:p-8">{error && <p role="alert" className="mb-4 flex items-center gap-2 rounded-lg bg-rose-50 p-3 text-xs font-bold text-rose-700"><AlertCircle size={15} />{error}</p>}<Surface className="grid min-h-120 overflow-hidden xl:grid-cols-[minmax(560px,1fr)_390px]"><section className="border-r border-slate-200"><div className="border-b border-slate-200 p-4 text-sm font-bold text-slate-700">{loading ? '불러오는 중...' : `전체 ${stats?.totalIssues ?? items.length}개`}</div>{!loading && items.length === 0 ? <div className="grid h-80 place-items-center text-sm text-slate-400">{projectId ? '등록된 이슈가 없습니다.' : '프로젝트를 먼저 선택하세요.'}</div> : <div className="divide-y divide-slate-100">{items.map((issue) => <button key={issue.id} onClick={() => loadDetail(issue.id)} className={`flex w-full items-start gap-3 p-5 text-left hover:bg-slate-50 ${selected?.id === issue.id ? 'bg-blue-50/60' : ''}`}><span className={`rounded-md px-2 py-1 text-xs font-extrabold ${issue.priority ? priorityStyle[issue.priority] : 'bg-slate-100 text-slate-400'}`}>{issue.priority ?? '—'}</span><div className="min-w-0 flex-1"><p className="font-mono text-xs text-slate-400">ISS-{issue.id} · {statusLabel[issue.status]}</p><h3 className="mt-1 truncate text-sm font-bold text-slate-800">{issue.title}</h3><p className="mt-1 truncate text-xs text-slate-500">{issue.summary ?? '요약 없음'}</p><p className="mt-3 flex gap-4 text-xs text-slate-400"><span className="flex items-center gap-1"><FileText size={12} /> 버그 {issue.bugCount}</span><span>{issue.assigneeName ?? '담당자 미지정'}</span><span>{formatDate(issue.lastSeenAt)}</span></p></div><ChevronRight size={17} className="mt-5 text-slate-300" /></button>)}</div>}</section><aside className="bg-slate-50/40 p-5">{detailLoading ? <LoaderCircle className="mx-auto mt-20 animate-spin text-clio-600" /> : selected ? <><div className="flex justify-between"><div><p className="font-mono text-xs font-bold text-clio-600">ISS-{selected.id}</p><h2 className="mt-2 text-lg font-extrabold text-slate-900">{selected.title}</h2></div><span className="text-xs font-bold text-slate-500">{statusLabel[selected.status]}</span></div><p className="mt-5 text-sm leading-6 text-slate-600">{selected.summary ?? '등록된 요약이 없습니다.'}</p><dl className="mt-5 grid grid-cols-2 gap-3"><Info label="통합 버그" value={`${selected.bugCount}개`} /><Info label="AI 신뢰도" value={selected.aiConfidence === null ? '미지정' : `${Math.round(selected.aiConfidence * (selected.aiConfidence <= 1 ? 100 : 1))}%`} /><Info label="담당자" value={selected.assigneeName ?? '미지정'} /><Info label="심각도" value={selected.severity ?? '미지정'} /></dl><section className="mt-6"><h3 className="text-xs font-bold text-slate-500">연결된 버그</h3><div className="mt-2 space-y-2">{selected.bugs.length ? selected.bugs.map((bug) => <div key={bug.id} className="rounded-lg border border-slate-200 bg-white p-3"><p className="text-xs font-bold text-slate-700">{bug.title}</p><p className="mt-1 text-[11px] text-slate-400">BUG-{bug.id} · {bug.source}</p></div>) : <p className="text-xs text-slate-400">연결된 버그가 없습니다.</p>}</div></section><div className="mt-6 flex flex-wrap gap-2">{selected.status === 'OPEN' && <Button disabled={updating} onClick={() => changeStatus('IN_PROGRESS')}>진행 시작</Button>}{selected.status === 'IN_PROGRESS' && <Button disabled={updating} onClick={() => changeStatus('RESOLVED')}><CheckCircle2 size={14} /> 해결 처리</Button>}{(selected.status === 'RESOLVED' || selected.status === 'CLOSED') && <Button variant="secondary" disabled={updating} onClick={() => changeStatus('OPEN')}>다시 열기</Button>}</div></> : <p className="mt-20 text-center text-sm text-slate-400">이슈를 선택하세요.</p>}</aside></Surface></div></div>
 }
 
-function Label({ children }: { children: ReactNode }) { return <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{children}</h4> }
-function Info({ label, value }: { label: string; value: string }) { return <div className="rounded-lg border border-slate-200 bg-white p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"><p className="text-[10px] font-semibold text-slate-400">{label}</p><p className="mt-1 text-xs font-bold text-slate-700">{value}</p></div> }
-function Step({ n }: { n: number }) { return <span className="grid size-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">{n}</span> }
-
-function IssueDetail({ issue }: { issue: Issue }) {
-  return <aside key={issue.id} className="animate-detail bg-slate-50/40"><div className="border-b border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><Priority value={issue.priority} /><IconButton><MoreHorizontal size={17} /></IconButton></div><p className="mt-4 font-mono text-[11px] font-bold text-clio-600">{issue.id}</p><h2 className="mt-2 text-lg font-extrabold leading-snug tracking-[-0.025em] text-slate-900">{issue.title}</h2></div><div className="space-y-6 p-5"><div><Label>AI 요약</Label><p className="mt-2 text-sm leading-6 text-slate-600">{issue.summary}. 여러 사용자 환경에서 반복적으로 확인되어 우선 대응이 필요합니다.</p></div><div className="grid grid-cols-2 gap-3"><Info label="통합 리포트" value={`${issue.reports}개`} /><Info label="AI 신뢰도" value={`${issue.confidence}%`} /><Info label="담당자" value={issue.owner} /><Info label="최근 업데이트" value={issue.updated} /></div><div><Label>재현 조건</Label><ol className="mt-2 space-y-2 text-xs leading-5 text-slate-600"><li className="flex gap-2"><Step n={1} />iOS 17.4 이상 기기에서 앱 실행</li><li className="flex gap-2"><Step n={2} />로그인 화면에서 소셜 로그인 선택</li><li className="flex gap-2"><Step n={3} />인증 완료 후 앱 복귀 여부 확인</li></ol></div><Button variant="dark" className="w-full text-sm"><Bot size={16} /> 에이전트에 전달 <ArrowRight size={15} /></Button></div></aside>
-}
-
-export function IssuesPage() {
-  const [selected, setSelected] = useState(issues[0])
-  return <div className="animate-page"><PageHeader eyebrow="PRIORITIZED QUEUE" title="이슈" description="유사한 리포트를 통합하고 영향도에 따라 자동 정렬한 작업 목록입니다."><div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700"><CheckCircle2 size={15} /> 마지막 분석 3분 전</div></PageHeader><div className="p-4 lg:p-8"><Surface className="animate-rise grid overflow-hidden xl:grid-cols-[minmax(560px,1fr)_390px]"><section className="min-w-0 border-slate-200 xl:border-r"><Toolbar label="열린 이슈 9개" /><div className="divide-y divide-slate-100 border-t border-slate-200">{issues.map((issue, index) => <button key={issue.id} style={{ animationDelay: `${80 + index * 50}ms` }} onClick={() => setSelected(issue)} className={`animate-item group flex w-full items-start gap-3 p-4 text-left transition-all duration-200 sm:p-5 ${selected.id === issue.id ? 'bg-blue-50/60' : 'hover:bg-slate-50'}`}><Priority value={issue.priority} /><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="font-mono text-[11px] font-semibold text-slate-400">{issue.id}</span><span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{issue.state}</span></div><h3 className="mt-1.5 truncate text-sm font-bold text-slate-800">{issue.title}</h3><p className="mt-1 truncate text-xs text-slate-500">{issue.summary}</p><div className="mt-3 flex items-center gap-4 text-[11px] text-slate-400"><span className="flex items-center gap-1"><FileText size={12} /> 리포트 {issue.reports}</span><span>{issue.owner}</span><span>{issue.updated}</span></div></div><ChevronRight size={17} className={`mt-5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 ${selected.id === issue.id ? 'text-clio-600' : 'text-slate-300'}`} /></button>)}</div></section><IssueDetail issue={selected} /></Surface></div></div>
-}
+function Info({ label, value }: { label: string; value: string }) { return <div className="rounded-lg border border-slate-200 bg-white p-3"><dt className="text-xs text-slate-400">{label}</dt><dd className="mt-1 text-xs font-bold text-slate-700">{value}</dd></div> }

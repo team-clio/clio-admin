@@ -4,7 +4,7 @@ import { Button, IconButton } from '../ui'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import type { Project } from '../../api/projects'
 
-type ProjectPickerProps = { projects: Project[]; selectedProjectId: string | null; setSelectedProjectId: Dispatch<SetStateAction<string | null>>; loading: boolean; loadError: string; onCreateProject: (name: string) => Promise<Project> }
+type ProjectPickerProps = { projects: Project[]; selectedProjectId: number | null; setSelectedProjectId: Dispatch<SetStateAction<number | null>>; loading: boolean; loadError: string; onCreateProject: (name: string) => Promise<Project> }
 
 export function ProjectPicker({ projects, selectedProjectId, setSelectedProjectId, loading, loadError, onCreateProject }: ProjectPickerProps) {
   const [open, setOpen] = useState(false)
