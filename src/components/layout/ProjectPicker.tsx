@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { Check, ChevronDown, FolderKanban, X } from 'lucide-react'
 import { Button, IconButton } from '../ui'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
-import type { Project } from '../../api/projects'
+import type { CreateProjectInput, Project } from '../../api/projects'
 
-type ProjectPickerProps = { projects: Project[]; selectedProjectId: number | null; setSelectedProjectId: Dispatch<SetStateAction<number | null>>; loading: boolean; loadError: string; onCreateProject: (name: string) => Promise<Project> }
+type ProjectPickerProps = { projects: Project[]; selectedProjectId: number | null; setSelectedProjectId: Dispatch<SetStateAction<number | null>>; loading: boolean; loadError: string; onCreateProject: (input: CreateProjectInput) => Promise<Project> }
 
 export function ProjectPicker({ projects, selectedProjectId, setSelectedProjectId, loading, loadError, onCreateProject }: ProjectPickerProps) {
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [projectName, setProjectName] = useState('')
+  const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [createError, setCreateError] = useState('')
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
@@ -21,8 +22,9 @@ export function ProjectPicker({ projects, selectedProjectId, setSelectedProjectI
     setSubmitting(true)
     setCreateError('')
     try {
-      await onCreateProject(name)
+      await onCreateProject({ name, description: description.trim() || undefined })
       setProjectName('')
+      setDescription('')
       setCreating(false)
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : '프로젝트를 만들지 못했습니다.')
@@ -56,6 +58,8 @@ export function ProjectPicker({ projects, selectedProjectId, setSelectedProjectI
           <div className="flex items-start justify-between gap-4"><div><span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-clio-600"><FolderKanban size={19} /></span><h2 className="mt-4 text-lg font-extrabold tracking-tight text-slate-900">새 프로젝트 만들기</h2><p className="mt-1.5 text-xs leading-5 text-slate-500">프로젝트별로 리포트와 이슈를 분리해 관리할 수 있어요.</p></div><IconButton type="button" onClick={() => setCreating(false)} aria-label="닫기"><X size={18} /></IconButton></div>
           <label className="mt-5 block text-xs font-bold text-slate-700" htmlFor="project-name">프로젝트 이름</label>
           <input id="project-name" autoFocus maxLength={120} disabled={submitting} value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="예: Clio Mobile" className="mt-2 w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-300 focus:border-clio-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50" />
+          <label className="mt-4 block text-xs font-bold text-slate-700" htmlFor="project-description">설명 <span className="font-normal text-slate-400">(선택)</span></label>
+          <textarea id="project-description" rows={3} maxLength={500} disabled={submitting} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="프로젝트의 제품이나 서비스 범위를 적어주세요." className="mt-2 w-full resize-none rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-300 focus:border-clio-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50" />
           {createError && <p role="alert" className="mt-2 text-xs font-semibold text-rose-600">{createError}</p>}
           <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="secondary" disabled={submitting} onClick={() => setCreating(false)}>취소</Button><Button type="submit" disabled={submitting || !projectName.trim()} className="disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-200">{submitting ? '만드는 중...' : '프로젝트 만들기'}</Button></div>
         </form>

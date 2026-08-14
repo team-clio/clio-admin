@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Project } from "./api/projects";
+import type { CreateProjectInput, Project } from "./api/projects";
 import { createProject, getProjects } from "./api/projects";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -7,8 +7,16 @@ import { IssuesPage } from "./pages/IssuesPage";
 import { McpPage } from "./pages/McpPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SystemSettingsPage } from "./pages/SystemSettingsPage";
+import { BugDebugPage } from "./pages/BugDebugPage";
+import { ProjectSettingsPage } from "./pages/ProjectSettingsPage";
 
-type Page = "reports" | "issues" | "mcp" | "system";
+type Page =
+  | "reports"
+  | "issues"
+  | "debug"
+  | "mcp"
+  | "project-settings"
+  | "system";
 
 function App() {
   const [page, setPage] = useState<Page>("reports");
@@ -41,15 +49,26 @@ function App() {
     };
   }, []);
 
-  const handleCreateProject = async (name: string) => {
+  const handleCreateProject = async (input: CreateProjectInput) => {
     setProjectsError("");
-    const project = await createProject(name);
+    const project = await createProject(input);
     setProjects((current) =>
       [...current, project].sort((a, b) => a.name.localeCompare(b.name)),
     );
     setSelectedProjectId(project.id);
     return project;
   };
+
+  const handleProjectUpdated = (updated: Project) => {
+    setProjects((current) =>
+      current
+        .map((project) => (project.id === updated.id ? updated : project))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    );
+  };
+
+  const selectedProject =
+    projects.find((project) => project.id === selectedProjectId) ?? null;
 
   const navigate = (next: Page) => {
     setPage(next);
@@ -100,6 +119,19 @@ function App() {
             />
           )}
           {page === "mcp" && <McpPage />}
+          {page === "project-settings" && (
+            <ProjectSettingsPage
+              key={selectedProjectId ?? "none"}
+              project={selectedProject}
+              onProjectUpdated={handleProjectUpdated}
+            />
+          )}
+          {page === "debug" && (
+            <BugDebugPage
+              key={selectedProjectId ?? "none"}
+              projectId={selectedProjectId}
+            />
+          )}
           {page === "system" && <SystemSettingsPage />}
         </main>
       </div>

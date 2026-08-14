@@ -1,4 +1,4 @@
-import { request, type PageResponse } from './client'
+import { jsonOptions, request, type PageResponse } from './client'
 
 export type BugStatus = 'NEW' | 'ANALYZING' | 'TRIAGED' | 'RESOLVED' | 'IGNORED'
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
@@ -26,6 +26,28 @@ export interface BugSearchParams {
   severity?: Severity
   from?: string
   to?: string
+}
+
+export interface CreateBugRequest {
+  source: string
+  title?: string
+  description?: string
+  error_type?: string
+  message?: string
+  stack_trace: string[]
+  raw_payload?: unknown
+  occurred_at: string
+}
+
+export interface CreatedBug extends BugSummary {
+  grouping?: unknown
+}
+
+export function createBug(projectId: number, payload: CreateBugRequest) {
+  return request<CreatedBug>(
+    `/external-api/v1/projects/${projectId}/bugs`,
+    jsonOptions('POST', payload),
+  )
 }
 
 export function getBugs(projectId: number, params: BugSearchParams = {}) {
