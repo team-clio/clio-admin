@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { createBug, type CreateBugRequest, type CreatedBug } from "../api/bugs";
-import { Button, Field, PageHeader, Surface } from "../components/ui";
+import { Button, Field, NoProjectSelected, PageHeader, Surface } from "../components/ui";
 
 const sources = [
   "API",
@@ -61,6 +61,19 @@ export function BugDebugPage({ projectId }: { projectId: number | null }) {
       return undefined;
     }
   }, [form.rawPayload]);
+
+  if (projectId === null) {
+    return (
+      <div className="animate-page">
+        <PageHeader
+          eyebrow="DEBUG TOOLS"
+          title="버그 등록 테스트"
+          description="선택한 프로젝트로 실제 버그 수집 API 요청을 전송합니다."
+        />
+        <NoProjectSelected />
+      </div>
+    );
+  }
 
   const payload: CreateBugRequest = {
     source: form.source,

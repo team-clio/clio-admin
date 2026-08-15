@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { getBugs } from "./api/bugs";
+import { getIssueStats } from "./api/issues";
 import type { CreateProjectInput, Project } from "./api/projects";
 import { createProject, getProjects } from "./api/projects";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -27,6 +29,11 @@ function App() {
   );
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState("");
+  const [sidebarCounts, setSidebarCounts] = useState<{
+    projectId: number;
+    reports?: number;
+    issues?: number;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -35,7 +42,6 @@ function App() {
       .then((items) => {
         if (!active) return;
         setProjects(items);
-        setSelectedProjectId((current) => current ?? items[0]?.id ?? null);
       })
       .catch((error) => {
         if (active) setProjectsError(error.message);
@@ -48,6 +54,33 @@ function App() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (selectedProjectId === null) return;
+
+    let active = true;
+
+    Promise.all([
+      getBugs(selectedProjectId, { page: 0, size: 1 }),
+      getIssueStats(selectedProjectId),
+    ])
+      .then(([bugs, issues]) => {
+        if (active) {
+          setSidebarCounts({
+            projectId: selectedProjectId,
+            reports: bugs.totalElements,
+            issues: issues.totalIssues,
+          });
+        }
+      })
+      .catch(() => {
+        // Keep counts hidden when either count endpoint is unavailable.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedProjectId]);
 
   const handleCreateProject = async (input: CreateProjectInput) => {
     setProjectsError("");
@@ -84,6 +117,7 @@ function App() {
     projectsLoading,
     projectsError,
     onCreateProject: handleCreateProject,
+    counts: sidebarCounts?.projectId === selectedProjectId ? sidebarCounts : {},
   };
 
   return (

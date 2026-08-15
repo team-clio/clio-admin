@@ -48,8 +48,51 @@ export interface IssueStats {
   dailyBugs: Array<{ date: string; count: number }>
 }
 
-export function getIssues(projectId: number, page = 0, size = 20) {
-  return request<PageResponse<IssueSummary>>(`/external-api/v1/projects/${projectId}/issues?page=${page}&size=${size}`)
+export type IssueAnalysisStatus = 'COMPLETED' | 'INSUFFICIENT_EVIDENCE' | 'NEEDS_REVIEW'
+
+export interface IssueAnalysisEvidence {
+  source_type?: string
+  source_id?: string
+  source_revision?: string
+  repository_id?: string
+  commit?: string
+  file_path?: string
+  location?: string | { path?: string; start_line?: number; end_line?: number }
+  statement?: string
+  snippet?: string
+  observation?: string
+}
+
+export interface IssueAnalysisHypothesis {
+  hypothesis?: string
+  statement?: string
+  confidence?: number
+}
+
+export interface IssueAnalysisSnapshot {
+  status: IssueAnalysisStatus
+  confidence?: number
+  findings?: Array<string | { fact?: string; statement?: string }>
+  hypotheses?: Array<string | IssueAnalysisHypothesis>
+  evidence?: IssueAnalysisEvidence[]
+  warnings?: string[]
+  resolution_plan?: {
+    steps?: Array<string | { description?: string; title?: string }>
+    acceptance_criteria?: string[]
+    risks?: string[]
+  }
+}
+
+export interface LatestIssueAnalysis {
+  analysisResultId: number
+  workflowRunId: number
+  issueAnalysis: IssueAnalysisSnapshot
+}
+
+export function getIssues(projectId: number, page = 0, size = 20, sort = 'riskScore,desc') {
+  return request<PageResponse<IssueSummary>>(
+    `/external-api/v1/projects/${projectId}/issues?page=${page}&size=${size}&sort=${encodeURIComponent(sort)}`,
+  )
 }
 
 export function getIssue(projectId: number, issueId: number) {
@@ -58,6 +101,12 @@ export function getIssue(projectId: number, issueId: number) {
 
 export function getIssueStats(projectId: number) {
   return request<IssueStats>(`/external-api/v1/projects/${projectId}/issues/stats`)
+}
+
+export function getLatestIssueAnalysis(projectId: number, issueId: number) {
+  return request<LatestIssueAnalysis | null>(
+    `/external-api/v1/projects/${projectId}/issues/${issueId}/analysis-results/latest`,
+  )
 }
 
 export function updateIssue(projectId: number, issueId: number, update: Partial<Pick<IssueSummary, 'status' | 'priority' | 'severity' | 'assigneeName'>>) {

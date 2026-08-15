@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, ExternalLink, GitBranch, FolderGit2, LoaderCircle, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 import { createProjectRepository, deleteProjectRepository, getProjectRepositories, updateProject, updateProjectRepository, type Project, type ProjectRepository, type RepositoryInput, type RepositoryProvider } from '../api/projects'
-import { Button, Field, IconButton, PageHeader, Surface } from '../components/ui'
+import { Button, Field, IconButton, NoProjectSelected, PageHeader, Surface } from '../components/ui'
 
 const emptyRepository: RepositoryInput = { provider: 'GITHUB', owner: '', name: '', url: '', defaultBranch: 'main', includePaths: [], excludePaths: [], enabled: true }
 const inputClass = 'mt-2 w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-300 focus:border-clio-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50'
@@ -44,7 +44,7 @@ export function ProjectSettingsPage({ project, onProjectUpdated }: { project: Pr
     return () => { active = false }
   }, [project])
 
-  if (!project) return <div className="animate-page"><PageHeader eyebrow="PROJECT" title="프로젝트 설정" description="프로젝트의 기본 정보와 연결된 레포지토리를 관리합니다." /><div className="grid min-h-96 place-items-center p-8 text-center"><div><AlertCircle className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">먼저 프로젝트를 선택해 주세요.</p></div></div></div>
+  if (!project) return <div className="animate-page"><PageHeader eyebrow="PROJECT" title="프로젝트 설정" description="프로젝트의 기본 정보와 연결된 레포지토리를 관리합니다." /><NoProjectSelected /></div>
 
   const saveProject = async (event: React.FormEvent) => {
     event.preventDefault(); if (!name.trim()) return

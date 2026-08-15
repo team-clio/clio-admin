@@ -27,10 +27,12 @@
   - 목록: `GET /external-api/v1/projects/{projectId}/issues`
   - 상세: `GET /external-api/v1/projects/{projectId}/issues/{issueId}`
   - 통계: `GET /external-api/v1/projects/{projectId}/issues/stats`
-  - 상태 변경: `PATCH /external-api/v1/projects/{projectId}/issues/{issueId}`
+	- 상태 변경: `PATCH /external-api/v1/projects/{projectId}/issues/{issueId}`
+	- 최신 AI 분석: `GET /external-api/v1/projects/{projectId}/issues/{issueId}/analysis-results/latest`
 - 상세 화면의 고정 재현 조건과 고정 설명을 제거하고 서버가 반환하는 연결 버그 목록을 표시한다.
 - `OPEN → IN_PROGRESS → RESOLVED` 상태 변경과 해결된 이슈 다시 열기를 실제 API에 연결했다.
-- 우선순위를 서버 계약인 `P0`부터 `P4`까지 표시하도록 확장했다.
+	- 우선순위를 서버 계약인 `P0`부터 `P4`까지 표시하도록 확장했다.
+	- 상세 패널에서 분석 상태, 신뢰도, 원인 가설, 코드 근거, 해결 계획과 검토 경고를 표시한다.
 
 ## 시스템 설정 화면
 
