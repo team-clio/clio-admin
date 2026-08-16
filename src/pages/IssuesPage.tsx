@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FileText, LoaderCircle, Search } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FileCode, FileText, Folder, FolderOpen, LoaderCircle, Search } from 'lucide-react'
 import {
   getIssue,
   getIssues,
@@ -13,6 +13,7 @@ import {
   type IssueSummary,
   type IssueStatus,
   type LatestIssueAnalysis,
+  type CodeEvidenceFile,
   type CodeEvidenceResponse,
   type Priority,
 } from '../api/issues'
@@ -236,7 +237,7 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
           </div>
         )}
       </div>
-      {selected && <div className="scrollbar-subtle fixed inset-x-0 bottom-0 top-14 z-[70] overflow-y-auto bg-white"><IssueDetailPanel selected={selected} detailLoading={detailLoading} analysis={analysis} codeEvidence={codeEvidence} analysisLoading={analysisLoading} activeTab={activeTab} setActiveTab={setActiveTab} updating={updating} changeStatus={changeStatus} onClose={() => setSelected(null)} /></div>}
+      {selected && <div className="scrollbar-subtle fixed bottom-0 left-0 right-0 top-14 z-[70] overflow-y-auto bg-white lg:left-60"><IssueDetailPanel selected={selected} detailLoading={detailLoading} analysis={analysis} codeEvidence={codeEvidence} analysisLoading={analysisLoading} activeTab={activeTab} setActiveTab={setActiveTab} updating={updating} changeStatus={changeStatus} onClose={() => setSelected(null)} /></div>}
     </div>
   )
 }
@@ -264,8 +265,8 @@ function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, ana
     { id: 'bugs', label: '연결 버그', count: selected.bugs.length },
   ]
 
-  return <div className="animate-detail min-h-full">
-    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
+  return <div className="animate-detail flex min-h-full flex-col">
+    <header className="sticky top-0 z-10 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto max-w-4xl px-5 pt-5">
         <div className="flex items-start gap-3">
           {onClose && <IconButton className="-ml-1 mt-0.5" aria-label="이슈 목록으로 돌아가기" onClick={onClose}><ArrowLeft size={18} /></IconButton>}
@@ -277,7 +278,7 @@ function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, ana
         </div>
       </div>
     </header>
-    <div id={`issue-panel-${activeTab}`} role="tabpanel" aria-labelledby={`issue-tab-${activeTab}`} className={activeTab === 'evidence' ? 'mx-auto max-w-6xl p-5 lg:p-8' : 'mx-auto max-w-4xl p-5 lg:p-8'}>
+    <div id={`issue-panel-${activeTab}`} role="tabpanel" aria-labelledby={`issue-tab-${activeTab}`} className={activeTab === 'evidence' ? 'flex min-h-0 w-full flex-1 flex-col' : 'mx-auto w-full max-w-4xl p-5 lg:p-8'}>
       {activeTab === 'overview' && <><IssueSummaryMarkdown markdown={selected.summary} /><dl className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3"><Info label="통합 버그" value={`${selected.bugCount}개`} /><Info label="AI 신뢰도" value={formatConfidence(selected.aiConfidence)} /><Info label="우선순위" value={selected.priority ?? '—'} /><Info label="위험도" value={selected.riskScore != null ? `${selected.riskScore}점` : '—'} /><Info label="담당자" value={selected.assigneeName ?? '미지정'} /><Info label="심각도" value={selected.severity ?? '—'} /></dl></>}
       {activeTab === 'analysis' && <AnalysisSection analysis={issueAnalysis} loading={analysisLoading} includeEvidence={false} />}
       {activeTab === 'evidence' && <CodeEvidenceIde data={codeEvidence} fallback={evidence} />}
@@ -286,13 +287,88 @@ function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, ana
   </div>
 }
 
+const EMPTY_FILES: CodeEvidenceFile[] = []
+
+type FileTreeNode = { name: string; path: string; kind: 'dir' | 'file'; fileIndex?: number; children?: FileTreeNode[] }
+
+function buildFileTree(files: CodeEvidenceFile[]): FileTreeNode[] {
+  const root: FileTreeNode = { name: '', path: '', kind: 'dir', children: [] }
+  for (let index = 0; index < files.length; index++) {
+    const parts = files[index].path.split('/').filter(Boolean)
+    if (!parts.length) continue
+    let node = root
+    parts.forEach((part, depth) => {
+      const isLeaf = depth === parts.length - 1
+      const path = parts.slice(0, depth + 1).join('/')
+      let child = node.children?.find((item) => item.name === part)
+      if (!child) {
+        child = { name: part, path, kind: 'dir', children: [] }
+        node.children = node.children ?? []
+        node.children.push(child)
+      }
+      if (isLeaf) {
+        child.kind = 'file'
+        child.fileIndex = index
+      }
+      node = child
+    })
+  }
+  return sortFileTree(root.children ?? [])
+}
+
+function sortFileTree(nodes: FileTreeNode[]): FileTreeNode[] {
+  return nodes
+    .map((node) => (node.children ? { ...node, children: sortFileTree(node.children) } : node))
+    .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'dir' ? -1 : 1))
+}
+
+function FileTree({ nodes, selectedIndex, onSelect, collapsed, onToggle, indent = false }: {
+  nodes: FileTreeNode[]
+  selectedIndex: number
+  onSelect: (index: number) => void
+  collapsed: Set<string>
+  onToggle: (path: string) => void
+  indent?: boolean
+}) {
+  return <ul role={indent ? 'group' : 'tree'} className={indent ? 'pl-3' : ''}>
+    {nodes.map((node) => {
+      if (node.kind === 'dir') {
+        const isCollapsed = collapsed.has(node.path)
+        return <li key={node.path} role="treeitem" aria-expanded={!isCollapsed}>
+          <button onClick={() => onToggle(node.path)} className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left font-mono text-xs text-slate-600 hover:bg-white hover:text-slate-800">
+            <ChevronRight size={12} className={`shrink-0 text-slate-400 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+            {isCollapsed ? <Folder size={13} className="shrink-0 text-slate-400" /> : <FolderOpen size={13} className="shrink-0 text-slate-400" />}
+            <span className="truncate">{node.name}</span>
+          </button>
+          {!isCollapsed && node.children && <FileTree nodes={node.children} selectedIndex={selectedIndex} onSelect={onSelect} collapsed={collapsed} onToggle={onToggle} indent />}
+        </li>
+      }
+      return <li key={node.path} role="treeitem">
+        <button onClick={() => node.fileIndex !== undefined && onSelect(node.fileIndex)} className={`flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors ${node.fileIndex === selectedIndex ? 'bg-clio-50 text-clio-700 ring-1 ring-inset ring-clio-100' : 'text-slate-600 hover:bg-white hover:text-slate-800'}`}>
+          <span className="w-3 shrink-0" aria-hidden="true" />
+          <FileCode size={13} className="shrink-0 text-slate-400" />
+          <span className="truncate">{node.name}</span>
+        </button>
+      </li>
+    })}
+  </ul>
+}
+
 function CodeEvidenceIde({ data, fallback }: { data: CodeEvidenceResponse | null; fallback: NonNullable<IssueAnalysisSnapshot['evidence']> }) {
   const [selected, setSelected] = useState(0)
-  const files = data?.files ?? []
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+  const files = data?.files ?? EMPTY_FILES
+  const tree = useMemo(() => buildFileTree(files), [files])
   if (!files.length) return <><p className="text-sm text-slate-400">구조화된 코드 위치가 있는 최신 분석 결과가 없습니다.</p><CodeEvidence evidence={fallback} /></>
-  const file = files[Math.min(selected, files.length - 1)]
+  const selectedIndex = Math.min(selected, files.length - 1)
+  const file = files[selectedIndex]
   const lines = file.content.split('\n').map(line => { const match = line.match(/^(\d+):\s?(.*)$/); return { number: Number(match?.[1]), text: match?.[2] ?? line } })
-  return <div className="grid min-h-[34rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm grid-cols-[15rem_minmax(0,1fr)]"><aside className="border-r border-slate-200 bg-slate-50 p-3"><p className="mb-3 px-1 text-[10px] font-bold tracking-widest text-slate-400">EVIDENCE FILES</p>{files.map((item, index) => <button key={`${item.repository_id}-${item.path}`} onClick={() => setSelected(index)} className={`mb-1 block w-full truncate rounded-md px-2.5 py-2 text-left font-mono text-xs transition-colors ${index === selected ? 'bg-clio-50 text-clio-700 ring-1 ring-inset ring-clio-100' : 'text-slate-600 hover:bg-white hover:text-slate-800'}`}>{item.path}</button>)}</aside><section className="min-w-0"><div className="border-b border-slate-200 bg-white px-4 py-3 font-mono text-[11px] text-slate-600">{file.path} <span className="text-slate-400">@ {file.commit.slice(0, 12)}</span></div><div className="overflow-x-auto bg-white py-2 font-mono text-xs leading-6">{lines.map(line => { const citation = file.citations.find(item => line.number >= item.start_line && line.number <= item.end_line); return <div key={line.number} className={citation ? 'bg-clio-50 text-slate-800' : 'text-slate-600'}><span className="inline-block w-14 select-none border-r border-slate-100 pr-3 text-right text-slate-400">{line.number}</span><span className="whitespace-pre pl-4">{line.text}</span>{citation?.observation && line.number === citation.start_line && <p className="ml-14 border-l-2 border-clio-500 bg-clio-50/60 px-3 py-1 text-xs leading-5 text-clio-800">AI: {citation.observation}</p>}</div> })}</div></section></div>
+  const toggleDirectory = (path: string) => setCollapsed((current) => {
+    const next = new Set(current)
+    if (next.has(path)) next.delete(path); else next.add(path)
+    return next
+  })
+  return <div className="grid min-h-0 flex-1 grid-cols-[15rem_minmax(0,1fr)] bg-white"><aside className="min-h-0 overflow-y-auto border-r border-slate-200 bg-slate-50 p-3"><p className="mb-3 px-1 text-[10px] font-bold tracking-widest text-slate-400">EVIDENCE FILES</p><FileTree nodes={tree} selectedIndex={selectedIndex} onSelect={setSelected} collapsed={collapsed} onToggle={toggleDirectory} /></aside><section className="flex min-h-0 min-w-0 flex-col"><div className="shrink-0 truncate border-b border-slate-200 bg-white px-4 py-3 font-mono text-[11px] text-slate-600">{file.path} <span className="text-slate-400">@ {file.commit.slice(0, 12)}</span></div><div className="min-h-0 flex-1 overflow-auto bg-white py-2 font-mono text-xs leading-6">{lines.map(line => { const citation = file.citations.find(item => line.number >= item.start_line && line.number <= item.end_line); return <div key={line.number} className={citation ? 'bg-clio-50 text-slate-800' : 'text-slate-600'}><span className="inline-block w-14 select-none border-r border-slate-100 pr-3 text-right text-slate-400">{line.number}</span><span className="whitespace-pre pl-4">{line.text}</span>{citation?.observation && line.number === citation.start_line && <p className="ml-14 border-l-2 border-clio-500 bg-clio-50/60 px-3 py-1 text-xs leading-5 text-clio-800">AI: {citation.observation}</p>}</div> })}</div></section></div>
 }
 
 function IssueAction({ status, updating, changeStatus }: { status: IssueStatus; updating: boolean; changeStatus: (status: IssueStatus) => Promise<void> }) {
