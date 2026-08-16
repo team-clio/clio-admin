@@ -1,21 +1,21 @@
-import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useMemo, useState } from 'react'
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FileCode, FileText, Folder, FolderOpen, LoaderCircle, Search } from 'lucide-react'
 import {
-  getIssue,
-  getIssues,
-  getIssueStats,
-  getCodeEvidence,
-  getLatestIssueAnalysis,
-  updateIssue,
-  type IssueAnalysisSnapshot,
-  type IssueDetail,
-  type IssueStats,
-  type IssueSummary,
-  type IssueStatus,
-  type LatestIssueAnalysis,
-  type CodeEvidenceFile,
-  type CodeEvidenceResponse,
-  type Priority,
+  useCodeEvidence,
+  useIssue,
+  useIssues,
+  useIssueStats,
+  useLatestIssueAnalysis,
+  useUpdateIssue,
+} from '../api/hooks'
+import type {
+  IssueAnalysisSnapshot,
+  IssueDetail,
+  IssueStatus,
+  LatestIssueAnalysis,
+  CodeEvidenceFile,
+  CodeEvidenceResponse,
+  Priority,
 } from '../api/issues'
 import { Button, IconButton, NoProjectSelected, PageHeader } from '../components/ui'
 
@@ -66,21 +66,27 @@ const isCodeEvidence = (item: EvidenceItem) =>
   Boolean(item.repository_id || item.source_id || item.file_path || item.location)
 
 export function IssuesPage({ projectId }: { projectId: number | null }) {
-  const [items, setItems] = useState<IssueSummary[]>([])
-  const [stats, setStats] = useState<IssueStats | null>(null)
-  const [selected, setSelected] = useState<IssueDetail | null>(null)
-  const [analysis, setAnalysis] = useState<LatestIssueAnalysis | null>(null)
-  const [loading, setLoading] = useState(() => projectId !== null)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [analysisLoading, setAnalysisLoading] = useState(false)
-  const [codeEvidence, setCodeEvidence] = useState<CodeEvidenceResponse | null>(null)
-  const [updating, setUpdating] = useState(false)
-  const [error, setError] = useState('')
+  const [selectedId, setSelectedId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<IssueTab>('overview')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<IssueStatus | 'ALL'>('ALL')
   const [sort, setSort] = useState('riskScore,desc')
-  const detailRequest = useRef(0)
+
+  const issuesQuery = useIssues(projectId, 0, 20, sort)
+  const statsQuery = useIssueStats(projectId)
+  const detailQuery = useIssue(projectId, selectedId)
+  const analysisQuery = useLatestIssueAnalysis(projectId, selectedId)
+  const codeEvidenceQuery = useCodeEvidence(projectId, selectedId)
+  const updateIssueMutation = useUpdateIssue(projectId, selectedId)
+
+  const items = useMemo(() => issuesQuery.data?.items ?? [], [issuesQuery.data])
+  const stats = statsQuery.data ?? null
+  const loading = issuesQuery.isPending
+  const error =
+    (issuesQuery.error instanceof Error ? issuesQuery.error.message : '') ||
+    (updateIssueMutation.error instanceof Error
+      ? updateIssueMutation.error.message
+      : '')
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -96,45 +102,6 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
     })
   }, [items, query, statusFilter])
 
-  const loadDetail = (issueId: number, targetProjectId = projectId) => {
-    if (targetProjectId === null) return
-    setActiveTab('overview')
-    const request = ++detailRequest.current
-    setDetailLoading(true)
-    setAnalysisLoading(true)
-    setAnalysis(null)
-    setCodeEvidence(null)
-    getIssue(targetProjectId, issueId)
-      .then((detail) => request === detailRequest.current && setSelected(detail))
-      .catch((reason) =>
-        setError(reason instanceof Error ? reason.message : '상세를 불러오지 못했습니다.'),
-      )
-      .finally(() => request === detailRequest.current && setDetailLoading(false))
-    getLatestIssueAnalysis(targetProjectId, issueId)
-      .then((result) => request === detailRequest.current && setAnalysis(result))
-      .catch(() => setAnalysis(null))
-      .finally(() => request === detailRequest.current && setAnalysisLoading(false))
-    getCodeEvidence(targetProjectId, issueId).then(result => request === detailRequest.current && setCodeEvidence(result)).catch(() => setCodeEvidence(null))
-  }
-
-  useEffect(() => {
-    if (projectId === null) return
-    let active = true
-    Promise.all([getIssues(projectId, 0, 20, sort), getIssueStats(projectId)])
-      .then(([issues, nextStats]) => {
-        if (!active) return
-        setItems(issues.items)
-        setStats(nextStats)
-      })
-      .catch((reason) =>
-        active && setError(reason instanceof Error ? reason.message : '이슈를 불러오지 못했습니다.'),
-      )
-      .finally(() => active && setLoading(false))
-    return () => {
-      active = false
-    }
-  }, [projectId, sort])
-
   if (projectId === null) {
     return (
       <div className="animate-page flex min-h-[calc(100vh-3.5rem)] flex-col">
@@ -144,20 +111,9 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
     )
   }
 
-  const changeStatus = async (status: IssueStatus) => {
-    if (!projectId || !selected) return
-    setUpdating(true)
-    setError('')
-    try {
-      const updated = await updateIssue(projectId, selected.id, { status })
-      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)))
-      setSelected((current) => (current ? { ...current, ...updated } : current))
-      setStats(await getIssueStats(projectId))
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '상태를 변경하지 못했습니다.')
-    } finally {
-      setUpdating(false)
-    }
+  const changeStatus = (status: IssueStatus) => {
+    if (selectedId === null) return
+    updateIssueMutation.mutate(status)
   }
 
   return (
@@ -196,7 +152,7 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
             <span className="h-5 w-px shrink-0 bg-slate-200" aria-hidden="true" />
             <label className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-slate-500">
               정렬
-              <select value={sort} onChange={(event) => { setSort(event.target.value); setLoading(true) }} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-clio-500" aria-label="정렬 기준">
+              <select value={sort} onChange={(event) => setSort(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-clio-500" aria-label="정렬 기준">
                 {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
@@ -215,7 +171,7 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
             {filteredItems.map((issue) => (
               <button
                 key={issue.id}
-                onClick={() => loadDetail(issue.id)}
+                onClick={() => { setActiveTab('overview'); setSelectedId(issue.id) }}
                 className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-50 lg:px-8"
               >
                 <span className={`mt-0.5 shrink-0 rounded-md px-2 py-1 text-xs font-extrabold ${issue.priority ? priorityStyle[issue.priority] : 'bg-slate-100 text-slate-400'}`}>
@@ -237,13 +193,13 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
           </div>
         )}
       </div>
-      {selected && <div className="scrollbar-subtle fixed bottom-0 left-0 right-0 top-14 z-[70] overflow-y-auto bg-white lg:left-60"><IssueDetailPanel selected={selected} detailLoading={detailLoading} analysis={analysis} codeEvidence={codeEvidence} analysisLoading={analysisLoading} activeTab={activeTab} setActiveTab={setActiveTab} updating={updating} changeStatus={changeStatus} onClose={() => setSelected(null)} /></div>}
+      {selectedId !== null && (detailQuery.data !== undefined || detailQuery.isPending) && <div className="scrollbar-subtle fixed bottom-0 left-0 right-0 top-14 z-[70] overflow-y-auto bg-white lg:left-60"><IssueDetailPanel detail={detailQuery.data ?? null} detailLoading={detailQuery.isPending} analysis={analysisQuery.data ?? null} codeEvidence={codeEvidenceQuery.data ?? null} analysisLoading={analysisQuery.isPending} activeTab={activeTab} setActiveTab={setActiveTab} updating={updateIssueMutation.isPending} changeStatus={changeStatus} onClose={() => setSelectedId(null)} /></div>}
     </div>
   )
 }
 
-function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, analysisLoading, activeTab, setActiveTab, updating, changeStatus, onClose }: {
-  selected: IssueDetail | null
+function IssueDetailPanel({ detail, detailLoading, analysis, codeEvidence, analysisLoading, activeTab, setActiveTab, updating, changeStatus, onClose }: {
+  detail: IssueDetail | null
   detailLoading: boolean
   analysis: LatestIssueAnalysis | null
   codeEvidence: CodeEvidenceResponse | null
@@ -251,10 +207,10 @@ function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, ana
   activeTab: IssueTab
   setActiveTab: (tab: IssueTab) => void
   updating: boolean
-  changeStatus: (status: IssueStatus) => Promise<void>
+  changeStatus: (status: IssueStatus) => void
   onClose?: () => void
 }) {
-  if (detailLoading || !selected) return <LoaderCircle className="mx-auto mt-20 animate-spin text-clio-600" />
+  if (detailLoading || !detail) return <LoaderCircle className="mx-auto mt-20 animate-spin text-clio-600" />
 
   const issueAnalysis = analysis?.issueAnalysis ?? null
   const evidence = issueAnalysis?.evidence ?? []
@@ -262,7 +218,7 @@ function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, ana
     { id: 'overview', label: '개요' },
     { id: 'analysis', label: 'AI 분석' },
     { id: 'evidence', label: '코드 근거', count: evidence.filter(isCodeEvidence).length },
-    { id: 'bugs', label: '연결 버그', count: selected.bugs.length },
+    { id: 'bugs', label: '연결 버그', count: detail.bugs.length },
   ]
 
   return <div className="animate-detail flex min-h-full flex-col">
@@ -270,8 +226,8 @@ function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, ana
       <div className="mx-auto max-w-4xl px-5 pt-5">
         <div className="flex items-start gap-3">
           {onClose && <IconButton className="-ml-1 mt-0.5" aria-label="이슈 목록으로 돌아가기" onClick={onClose}><ArrowLeft size={18} /></IconButton>}
-          <div className="min-w-0 flex-1"><p className="font-mono text-xs text-slate-400">ISS-{selected.id} · {statusLabel[selected.status]}</p><h2 className="mt-1 text-lg font-bold leading-6 text-slate-900">{selected.title}</h2></div>
-          <IssueAction status={selected.status} updating={updating} changeStatus={changeStatus} />
+          <div className="min-w-0 flex-1"><p className="font-mono text-xs text-slate-400">ISS-{detail.id} · {statusLabel[detail.status]}</p><h2 className="mt-1 text-lg font-bold leading-6 text-slate-900">{detail.title}</h2></div>
+          <IssueAction status={detail.status} updating={updating} changeStatus={changeStatus} />
         </div>
         <div role="tablist" aria-label="이슈 상세 보기" className="mt-5 flex gap-4 overflow-x-auto">
           {tabs.map((tab) => <button key={tab.id} id={`issue-tab-${tab.id}`} role="tab" aria-selected={activeTab === tab.id} aria-controls={`issue-panel-${tab.id}`} onClick={() => setActiveTab(tab.id)} className={`shrink-0 border-b-2 pb-3 text-xs font-bold transition-colors ${activeTab === tab.id ? 'border-clio-600 text-clio-700' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>{tab.label}{tab.count !== undefined && <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{tab.count}</span>}</button>)}
@@ -279,10 +235,10 @@ function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, ana
       </div>
     </header>
     <div id={`issue-panel-${activeTab}`} role="tabpanel" aria-labelledby={`issue-tab-${activeTab}`} className={activeTab === 'evidence' ? 'flex min-h-0 w-full flex-1 flex-col' : 'mx-auto w-full max-w-4xl p-5 lg:p-8'}>
-      {activeTab === 'overview' && <><IssueSummaryMarkdown markdown={selected.summary} /><dl className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3"><Info label="통합 버그" value={`${selected.bugCount}개`} /><Info label="AI 신뢰도" value={formatConfidence(selected.aiConfidence)} /><Info label="우선순위" value={selected.priority ?? '—'} /><Info label="위험도" value={selected.riskScore != null ? `${selected.riskScore}점` : '—'} /><Info label="담당자" value={selected.assigneeName ?? '미지정'} /><Info label="심각도" value={selected.severity ?? '—'} /></dl></>}
+      {activeTab === 'overview' && <><IssueSummaryMarkdown markdown={detail.summary} /><dl className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3"><Info label="통합 버그" value={`${detail.bugCount}개`} /><Info label="AI 신뢰도" value={formatConfidence(detail.aiConfidence)} /><Info label="우선순위" value={detail.priority ?? '—'} /><Info label="위험도" value={detail.riskScore != null ? `${detail.riskScore}점` : '—'} /><Info label="담당자" value={detail.assigneeName ?? '미지정'} /><Info label="심각도" value={detail.severity ?? '—'} /></dl></>}
       {activeTab === 'analysis' && <AnalysisSection analysis={issueAnalysis} loading={analysisLoading} includeEvidence={false} />}
       {activeTab === 'evidence' && <CodeEvidenceIde data={codeEvidence} fallback={evidence} />}
-      {activeTab === 'bugs' && <LinkedBugs bugs={selected.bugs} />}
+      {activeTab === 'bugs' && <LinkedBugs bugs={detail.bugs} />}
     </div>
   </div>
 }
@@ -371,7 +327,7 @@ function CodeEvidenceIde({ data, fallback }: { data: CodeEvidenceResponse | null
   return <div className="grid min-h-0 flex-1 grid-cols-[15rem_minmax(0,1fr)] bg-white"><aside className="min-h-0 overflow-y-auto border-r border-slate-200 bg-slate-50 p-3"><p className="mb-3 px-1 text-[10px] font-bold tracking-widest text-slate-400">EVIDENCE FILES</p><FileTree nodes={tree} selectedIndex={selectedIndex} onSelect={setSelected} collapsed={collapsed} onToggle={toggleDirectory} /></aside><section className="flex min-h-0 min-w-0 flex-col"><div className="shrink-0 truncate border-b border-slate-200 bg-white px-4 py-3 font-mono text-[11px] text-slate-600">{file.path} <span className="text-slate-400">@ {file.commit.slice(0, 12)}</span></div><div className="min-h-0 flex-1 overflow-auto bg-white py-2 font-mono text-xs leading-6">{lines.map(line => { const citation = file.citations.find(item => line.number >= item.start_line && line.number <= item.end_line); return <div key={line.number} className={citation ? 'bg-clio-50 text-slate-800' : 'text-slate-600'}><span className="inline-block w-14 select-none border-r border-slate-100 pr-3 text-right text-slate-400">{line.number}</span><span className="whitespace-pre pl-4">{line.text}</span>{citation?.observation && line.number === citation.start_line && <p className="ml-14 border-l-2 border-clio-500 bg-clio-50/60 px-3 py-1 text-xs leading-5 text-clio-800">AI: {citation.observation}</p>}</div> })}</div></section></div>
 }
 
-function IssueAction({ status, updating, changeStatus }: { status: IssueStatus; updating: boolean; changeStatus: (status: IssueStatus) => Promise<void> }) {
+function IssueAction({ status, updating, changeStatus }: { status: IssueStatus; updating: boolean; changeStatus: (status: IssueStatus) => void }) {
   if (status === 'OPEN') return <Button className="shrink-0 px-3 py-2" onClick={() => changeStatus('IN_PROGRESS')} disabled={updating}>처리 시작</Button>
   if (status === 'IN_PROGRESS') return <Button className="shrink-0 px-3 py-2" onClick={() => changeStatus('RESOLVED')} disabled={updating}>해결 처리</Button>
   if (status === 'RESOLVED') return <Button className="shrink-0 px-3 py-2" variant="secondary" onClick={() => changeStatus('OPEN')} disabled={updating}>다시 열기</Button>

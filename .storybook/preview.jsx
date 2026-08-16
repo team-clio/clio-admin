@@ -1,6 +1,22 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '../src/index.css'
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+})
+
 const preview = {
+  decorators: [
+    (Story) => (
+      <QueryClientProvider client={queryClient}>
+        <Story />
+      </QueryClientProvider>
+    ),
+  ],
   parameters: {
     layout: 'centered',
     controls: {

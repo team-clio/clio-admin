@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { getBugs } from "./api/bugs";
-import { getIssueStats } from "./api/issues";
-import type { CreateProjectInput, Project } from "./api/projects";
-import { createProject, getProjects } from "./api/projects";
+import { useState } from "react";
+import type { CreateProjectInput } from "./api/projects";
+import {
+  useCreateProject,
+  useProjects,
+  useSidebarCounts,
+} from "./api/hooks";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { IssuesPage } from "./pages/IssuesPage";
@@ -23,85 +25,23 @@ type Page =
 function App() {
   const [page, setPage] = useState<Page>("reports");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     null,
   );
-  const [projectsLoading, setProjectsLoading] = useState(true);
-  const [projectsError, setProjectsError] = useState("");
-  const [sidebarCounts, setSidebarCounts] = useState<{
-    projectId: number;
-    reports?: number;
-    issues?: number;
-  } | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    getProjects()
-      .then((items) => {
-        if (!active) return;
-        setProjects(items);
-      })
-      .catch((error) => {
-        if (active) setProjectsError(error.message);
-      })
-      .finally(() => {
-        if (active) setProjectsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (selectedProjectId === null) return;
-
-    let active = true;
-
-    Promise.all([
-      getBugs(selectedProjectId, { page: 0, size: 1 }),
-      getIssueStats(selectedProjectId),
-    ])
-      .then(([bugs, issues]) => {
-        if (active) {
-          setSidebarCounts({
-            projectId: selectedProjectId,
-            reports: bugs.totalElements,
-            issues: issues.totalIssues,
-          });
-        }
-      })
-      .catch(() => {
-        // Keep counts hidden when either count endpoint is unavailable.
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [selectedProjectId]);
+  const projectsQuery = useProjects();
+  const countsQuery = useSidebarCounts(selectedProjectId);
+  const createProjectMutation = useCreateProject();
 
   const handleCreateProject = async (input: CreateProjectInput) => {
-    setProjectsError("");
-    const project = await createProject(input);
-    setProjects((current) =>
-      [...current, project].sort((a, b) => a.name.localeCompare(b.name)),
-    );
+    const project = await createProjectMutation.mutateAsync(input);
     setSelectedProjectId(project.id);
     return project;
   };
 
-  const handleProjectUpdated = (updated: Project) => {
-    setProjects((current) =>
-      current
-        .map((project) => (project.id === updated.id ? updated : project))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    );
-  };
-
   const selectedProject =
-    projects.find((project) => project.id === selectedProjectId) ?? null;
+    projectsQuery.data?.find((project) => project.id === selectedProjectId) ??
+    null;
 
   const navigate = (next: Page) => {
     setPage(next);
@@ -111,13 +51,14 @@ function App() {
   const sidebarProps = {
     page,
     navigate,
-    projects,
+    projects: projectsQuery.data ?? [],
     selectedProjectId,
     setSelectedProjectId,
-    projectsLoading,
-    projectsError,
+    projectsLoading: projectsQuery.isPending,
+    projectsError:
+      projectsQuery.error instanceof Error ? projectsQuery.error.message : "",
     onCreateProject: handleCreateProject,
-    counts: sidebarCounts?.projectId === selectedProjectId ? sidebarCounts : {},
+    counts: countsQuery.data ?? {},
   };
 
   return (
@@ -157,7 +98,6 @@ function App() {
             <ProjectSettingsPage
               key={selectedProjectId ?? "none"}
               project={selectedProject}
-              onProjectUpdated={handleProjectUpdated}
             />
           )}
           {page === "debug" && (

@@ -8,7 +8,8 @@ import {
   Send,
 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { createBug, type CreateBugRequest, type CreatedBug } from "../api/bugs";
+import { useCreateBug } from "../api/hooks";
+import type { CreateBugRequest, CreatedBug } from "../api/bugs";
 import { Button, Field, NoProjectSelected, PageHeader, Surface } from "../components/ui";
 
 const sources = [
@@ -49,10 +50,12 @@ function optional(value: string) {
 
 export function BugDebugPage({ projectId }: { projectId: number | null }) {
   const [form, setForm] = useState(initialForm);
-  const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CreatedBug | null>(null);
   const [error, setError] = useState("");
   const [rawError, setRawError] = useState("");
+
+  const createBugMutation = useCreateBug(projectId);
+  const submitting = createBugMutation.isPending;
 
   const parsedPayload = useMemo(() => {
     try {
@@ -109,15 +112,12 @@ export function BugDebugPage({ projectId }: { projectId: number | null }) {
       setRawError("올바른 JSON 형식이 아닙니다.");
       return;
     }
-    setSubmitting(true);
     try {
-      setResult(await createBug(projectId, payload));
+      setResult(await createBugMutation.mutateAsync(payload));
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "버그 등록에 실패했습니다.",
       );
-    } finally {
-      setSubmitting(false);
     }
   };
 

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertCircle, Bug, Clock3, FileText, Link2, Server } from 'lucide-react'
-import { getBugs, type BugSummary, type BugStatus, type Severity } from '../api/bugs'
+import { useBugs } from '../api/hooks'
+import type { BugSummary, BugStatus, Severity } from '../api/bugs'
 import { Button, IconButton, NoProjectSelected, PageHeader, Surface } from '../components/ui'
 
 const statusLabel: Record<BugStatus, string> = { NEW: '새 리포트', ANALYZING: '분석 중', TRIAGED: '분류 완료', RESOLVED: '해결됨', IGNORED: '무시됨' }
@@ -26,27 +27,20 @@ function Detail({ bug, onClose }: { bug: BugSummary; onClose: () => void }) {
 function Info({ label, value }: { label: string; value: string }) { return <div className="rounded-lg border border-slate-200 p-3"><dt className="text-xs text-slate-400">{label}</dt><dd className="mt-1 font-bold text-slate-700">{value}</dd></div> }
 
 export function ReportsPage({ projectId }: { projectId: number | null }) {
-  const [items, setItems] = useState<BugSummary[]>([])
   const [page, setPage] = useState(0)
-  const [totalElements, setTotalElements] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [selected, setSelected] = useState<BugSummary | null>(null)
 
-  useEffect(() => {
-    if (projectId === null) return
-    let active = true
-    getBugs(projectId, { page, size: 20 }).then((response) => {
-      if (!active) return
-      setItems(response.items); setTotalElements(response.totalElements); setTotalPages(response.totalPages)
-    }).catch((reason) => active && setError(reason instanceof Error ? reason.message : '버그를 불러오지 못했습니다.')).finally(() => active && setLoading(false))
-    return () => { active = false }
-  }, [projectId, page])
+  const bugsQuery = useBugs(projectId, { page, size: 20 })
 
   if (projectId === null) {
     return <div className="animate-page"><PageHeader eyebrow="INBOX" title="버그 리포트" description="선택한 프로젝트에 수집된 버그를 서버에서 조회합니다." /><NoProjectSelected /></div>
   }
+
+  const items = bugsQuery.data?.items ?? []
+  const totalElements = bugsQuery.data?.totalElements ?? 0
+  const totalPages = bugsQuery.data?.totalPages ?? 0
+  const loading = bugsQuery.isPending
+  const error = bugsQuery.error instanceof Error ? bugsQuery.error.message : ''
 
   const newCount = items.filter((item) => item.status === 'NEW').length
   const analyzingCount = items.filter((item) => item.status === 'ANALYZING').length
