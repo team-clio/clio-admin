@@ -88,6 +88,8 @@ export interface LatestIssueAnalysis {
   workflowRunId: number
   issueAnalysis: IssueAnalysisSnapshot
 }
+export interface CodeEvidenceFile { repository_id: string; commit: string; path: string; start_line: number; end_line: number; content: string; citations: Array<{ evidence_id: string; start_line: number; end_line: number; observation?: string }> }
+export interface CodeEvidenceResponse { files: CodeEvidenceFile[]; available?: boolean }
 
 export function getIssues(projectId: number, page = 0, size = 20, sort = 'riskScore,desc') {
   return request<PageResponse<IssueSummary>>(
@@ -108,6 +110,7 @@ export function getLatestIssueAnalysis(projectId: number, issueId: number) {
     `/external-api/v1/projects/${projectId}/issues/${issueId}/analysis-results/latest`,
   )
 }
+export function getCodeEvidence(projectId: number, issueId: number) { return request<CodeEvidenceResponse>(`/external-api/v1/projects/${projectId}/issues/${issueId}/analysis-results/latest/code-evidence`) }
 
 export function updateIssue(projectId: number, issueId: number, update: Partial<Pick<IssueSummary, 'status' | 'priority' | 'severity' | 'assigneeName'>>) {
   return request<IssueSummary>(`/external-api/v1/projects/${projectId}/issues/${issueId}`, jsonOptions('PATCH', update))

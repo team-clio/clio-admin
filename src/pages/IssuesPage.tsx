@@ -4,6 +4,7 @@ import {
   getIssue,
   getIssues,
   getIssueStats,
+  getCodeEvidence,
   getLatestIssueAnalysis,
   updateIssue,
   type IssueAnalysisSnapshot,
@@ -12,6 +13,7 @@ import {
   type IssueSummary,
   type IssueStatus,
   type LatestIssueAnalysis,
+  type CodeEvidenceResponse,
   type Priority,
 } from '../api/issues'
 import { Button, IconButton, NoProjectSelected, PageHeader } from '../components/ui'
@@ -70,6 +72,7 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
   const [loading, setLoading] = useState(() => projectId !== null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [analysisLoading, setAnalysisLoading] = useState(false)
+  const [codeEvidence, setCodeEvidence] = useState<CodeEvidenceResponse | null>(null)
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<IssueTab>('overview')
@@ -99,6 +102,7 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
     setDetailLoading(true)
     setAnalysisLoading(true)
     setAnalysis(null)
+    setCodeEvidence(null)
     getIssue(targetProjectId, issueId)
       .then((detail) => request === detailRequest.current && setSelected(detail))
       .catch((reason) =>
@@ -109,6 +113,7 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
       .then((result) => request === detailRequest.current && setAnalysis(result))
       .catch(() => setAnalysis(null))
       .finally(() => request === detailRequest.current && setAnalysisLoading(false))
+    getCodeEvidence(targetProjectId, issueId).then(result => request === detailRequest.current && setCodeEvidence(result)).catch(() => setCodeEvidence(null))
   }
 
   useEffect(() => {
@@ -231,15 +236,16 @@ export function IssuesPage({ projectId }: { projectId: number | null }) {
           </div>
         )}
       </div>
-      {selected && <div className="scrollbar-subtle fixed inset-x-0 bottom-0 top-14 z-[70] overflow-y-auto bg-white"><IssueDetailPanel selected={selected} detailLoading={detailLoading} analysis={analysis} analysisLoading={analysisLoading} activeTab={activeTab} setActiveTab={setActiveTab} updating={updating} changeStatus={changeStatus} onClose={() => setSelected(null)} /></div>}
+      {selected && <div className="scrollbar-subtle fixed inset-x-0 bottom-0 top-14 z-[70] overflow-y-auto bg-white"><IssueDetailPanel selected={selected} detailLoading={detailLoading} analysis={analysis} codeEvidence={codeEvidence} analysisLoading={analysisLoading} activeTab={activeTab} setActiveTab={setActiveTab} updating={updating} changeStatus={changeStatus} onClose={() => setSelected(null)} /></div>}
     </div>
   )
 }
 
-function IssueDetailPanel({ selected, detailLoading, analysis, analysisLoading, activeTab, setActiveTab, updating, changeStatus, onClose }: {
+function IssueDetailPanel({ selected, detailLoading, analysis, codeEvidence, analysisLoading, activeTab, setActiveTab, updating, changeStatus, onClose }: {
   selected: IssueDetail | null
   detailLoading: boolean
   analysis: LatestIssueAnalysis | null
+  codeEvidence: CodeEvidenceResponse | null
   analysisLoading: boolean
   activeTab: IssueTab
   setActiveTab: (tab: IssueTab) => void
@@ -274,10 +280,19 @@ function IssueDetailPanel({ selected, detailLoading, analysis, analysisLoading, 
     <div id={`issue-panel-${activeTab}`} role="tabpanel" aria-labelledby={`issue-tab-${activeTab}`} className="mx-auto max-w-4xl p-5 lg:p-8">
       {activeTab === 'overview' && <><IssueSummaryMarkdown markdown={selected.summary} /><dl className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3"><Info label="통합 버그" value={`${selected.bugCount}개`} /><Info label="AI 신뢰도" value={formatConfidence(selected.aiConfidence)} /><Info label="우선순위" value={selected.priority ?? '—'} /><Info label="위험도" value={selected.riskScore != null ? `${selected.riskScore}점` : '—'} /><Info label="담당자" value={selected.assigneeName ?? '미지정'} /><Info label="심각도" value={selected.severity ?? '—'} /></dl></>}
       {activeTab === 'analysis' && <AnalysisSection analysis={issueAnalysis} loading={analysisLoading} includeEvidence={false} />}
-      {activeTab === 'evidence' && <CodeEvidence evidence={evidence} />}
+      {activeTab === 'evidence' && <CodeEvidenceIde data={codeEvidence} fallback={evidence} />}
       {activeTab === 'bugs' && <LinkedBugs bugs={selected.bugs} />}
     </div>
   </div>
+}
+
+function CodeEvidenceIde({ data, fallback }: { data: CodeEvidenceResponse | null; fallback: NonNullable<IssueAnalysisSnapshot['evidence']> }) {
+  const [selected, setSelected] = useState(0)
+  const files = data?.files ?? []
+  if (!files.length) return <><p className="text-sm text-slate-400">구조화된 코드 위치가 있는 최신 분석 결과가 없습니다.</p><CodeEvidence evidence={fallback} /></>
+  const file = files[Math.min(selected, files.length - 1)]
+  const lines = file.content.split('\n').map(line => { const match = line.match(/^(\d+):\s?(.*)$/); return { number: Number(match?.[1]), text: match?.[2] ?? line } })
+  return <div className="grid min-h-[440px] grid-cols-[13rem_minmax(0,1fr)] overflow-hidden rounded-xl border border-slate-200 bg-slate-950"><aside className="border-r border-slate-700 bg-slate-900 p-3"><p className="mb-3 text-[10px] font-bold tracking-widest text-slate-400">EVIDENCE FILES</p>{files.map((item, index) => <button key={`${item.repository_id}-${item.path}`} onClick={() => setSelected(index)} className={`mb-1 block w-full truncate rounded px-2 py-1.5 text-left font-mono text-[11px] ${index === selected ? 'bg-clio-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>{item.path}</button>)}</aside><section className="min-w-0"><div className="border-b border-slate-700 px-4 py-2 font-mono text-[11px] text-slate-300">{file.path} <span className="text-slate-500">@ {file.commit.slice(0, 12)}</span></div><div className="overflow-x-auto py-2 font-mono text-xs leading-6">{lines.map(line => { const citation = file.citations.find(item => line.number >= item.start_line && line.number <= item.end_line); return <div key={line.number} className={citation ? 'bg-amber-400/20 text-amber-100' : 'text-slate-300'}><span className="inline-block w-14 select-none border-r border-slate-800 pr-3 text-right text-slate-600">{line.number}</span><span className="pl-4 whitespace-pre">{line.text}</span>{citation?.observation && line.number === citation.start_line && <p className="ml-16 border-l-2 border-amber-400 px-3 text-[11px] text-amber-200">AI: {citation.observation}</p>}</div> })}</div></section></div>
 }
 
 function IssueAction({ status, updating, changeStatus }: { status: IssueStatus; updating: boolean; changeStatus: (status: IssueStatus) => Promise<void> }) {
