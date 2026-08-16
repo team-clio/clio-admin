@@ -5,7 +5,7 @@ export interface PcmSnapshot {
   project_id: string
   pcm_revision: number
   knowledge_index_revision: number
-  repository_revisions: Record<string, number>
+  repository_revisions: Record<string, string>
 }
 
 export interface PcmSourceReference {
