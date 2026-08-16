@@ -13,12 +13,14 @@ import { ReportsPage } from "./pages/ReportsPage";
 import { SystemSettingsPage } from "./pages/SystemSettingsPage";
 import { BugDebugPage } from "./pages/BugDebugPage";
 import { ProjectSettingsPage } from "./pages/ProjectSettingsPage";
+import { PcmInspectPage } from "./pages/PcmInspectPage";
 
 type Page =
   | "reports"
   | "issues"
   | "debug"
   | "mcp"
+  | "pcm"
   | "project-settings"
   | "system";
 
@@ -94,6 +96,12 @@ function App() {
             />
           )}
           {page === "mcp" && <McpPage />}
+          {page === "pcm" && (
+            <PcmInspectPage
+              key={selectedProjectId ?? "none"}
+              projectId={selectedProjectId}
+            />
+          )}
           {page === "project-settings" && (
             <ProjectSettingsPage
               key={selectedProjectId ?? "none"}

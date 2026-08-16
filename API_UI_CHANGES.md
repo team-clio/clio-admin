@@ -45,6 +45,16 @@
 - 서버에 API 키 발급·조회·재발급 API와 실제 MCP 패키지 계약이 없으므로 가짜 설치 명령과 “연결 준비 완료” 표시를 제거했다.
 - 현재 구현 전 상태와 예정 도구만 표시한다.
 
+## PCM 메모리 화면
+
+- 에이전트 PCM 컨텍스트 메모리를 조회하는 화면을 추가했다.
+  - 스냅샷: `GET /external-api/v1/pcm/projects/{projectId}/snapshot`
+  - 목록: `GET /external-api/v1/pcm/projects/{projectId}/knowledge`
+  - 상세: `GET /external-api/v1/pcm/projects/{projectId}/knowledge/{knowledgeId}`
+- 세 엔드포인트 모두 Spring 중계 API가 에이전트 JSON을 그대로 통과시키므로
+  화면은 스냅샷 revision, 지식 문서 목록, 본문·출처·관련 문서만 표시한다.
+- tombstone 문서는 목록에 배지로 표시하고, 목록의 문서를 선택하면 상세 API를 호출한다.
+
 ## 서버 측 추가 구현이 필요한 항목
 
 - 버그 원문·제보자·실행 환경·재현 단계 조회 API
