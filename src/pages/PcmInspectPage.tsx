@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   BookOpen,
   Braces,
   BrainCircuit,
@@ -15,7 +16,12 @@ import {
   usePcmSnapshot,
 } from "../api/hooks";
 import type { PcmKnowledgeDocument } from "../api/pcm";
-import { NoProjectSelected, PageHeader, Surface } from "../components/ui";
+import {
+  Button,
+  NoProjectSelected,
+  PageHeader,
+  Surface,
+} from "../components/ui";
 
 const typeLabels: Record<string, string> = {
   domain_rule: "도메인 규칙",
@@ -30,6 +36,8 @@ function typeLabel(type: string) {
 function SnapshotSummary({ projectId }: { projectId: number }) {
   const snapshotQuery = usePcmSnapshot(projectId);
   const snapshot = snapshotQuery.data;
+  const snapshotError =
+    snapshotQuery.error instanceof Error ? snapshotQuery.error.message : "";
   const repositoryCount = snapshot
     ? Object.keys(snapshot.repository_revisions ?? {}).length
     : 0;
@@ -57,6 +65,17 @@ function SnapshotSummary({ projectId }: { projectId: number }) {
       <div className="flex items-center gap-2 border-b border-slate-100 p-4 text-sm font-bold text-slate-700">
         <ServerCog size={16} /> 스냅샷
       </div>
+      {snapshotError && (
+        <div className="border-b border-rose-100 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700">
+          <span className="flex items-center gap-1.5">
+            <AlertCircle size={14} />
+            스냅샷을 불러오지 못했습니다.
+          </span>
+          <span className="mt-1 block font-normal text-rose-600">
+            {snapshotError}
+          </span>
+        </div>
+      )}
       <div className="grid gap-6 p-5 sm:grid-cols-3">
         {items.map((item) => (
           <div key={item.label}>
@@ -243,6 +262,8 @@ export function PcmInspectPage({ projectId }: { projectId: number | null }) {
     null,
   );
   const knowledgeQuery = usePcmKnowledge(projectId);
+  const knowledgeError =
+    knowledgeQuery.error instanceof Error ? knowledgeQuery.error.message : "";
 
   if (projectId === null) {
     return (
@@ -285,6 +306,25 @@ export function PcmInspectPage({ projectId }: { projectId: number | null }) {
             {knowledgeQuery.isPending ? (
               <div className="grid min-h-56 place-items-center text-slate-300">
                 <LoaderCircle size={22} className="animate-spin" />
+              </div>
+            ) : knowledgeError ? (
+              <div className="grid min-h-56 place-items-center p-8 text-center">
+                <div>
+                  <AlertCircle className="mx-auto text-rose-400" size={28} />
+                  <p className="mt-3 text-sm font-bold text-slate-700">
+                    PCM 지식을 불러오지 못했습니다
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {knowledgeError}
+                  </p>
+                  <Button
+                    className="mt-4"
+                    variant="secondary"
+                    onClick={() => void knowledgeQuery.refetch()}
+                  >
+                    다시 시도
+                  </Button>
+                </div>
               </div>
             ) : documents.length === 0 ? (
               <div className="grid min-h-56 place-items-center text-center">
