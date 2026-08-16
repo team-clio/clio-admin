@@ -27,6 +27,7 @@ import {
   type RepositoryInput,
 } from './projects'
 import { getLlmSettings } from './system'
+import { getPcmKnowledge, getPcmKnowledgeDetail, getPcmSnapshot } from './pcm'
 
 /** 프로젝트 목록 */
 export function useProjects() {
@@ -180,6 +181,36 @@ export function useDeleteProjectRepository(projectId: number | null) {
 /** LLM 설정 */
 export function useLlmSettings() {
   return useQuery({ queryKey: ['llm-settings'], queryFn: getLlmSettings })
+}
+
+/** PCM 스냅샷 (revision 정보) */
+export function usePcmSnapshot(projectId: number | null) {
+  return useQuery({
+    queryKey: ['pcm-snapshot', projectId],
+    queryFn: () => getPcmSnapshot(projectId as number),
+    enabled: projectId !== null,
+  })
+}
+
+/** PCM 지식 문서 목록 */
+export function usePcmKnowledge(projectId: number | null) {
+  return useQuery({
+    queryKey: ['pcm-knowledge', projectId],
+    queryFn: () => getPcmKnowledge(projectId as number),
+    enabled: projectId !== null,
+  })
+}
+
+/** PCM 지식 문서 상세 */
+export function usePcmKnowledgeDetail(
+  projectId: number | null,
+  knowledgeId: string | null,
+) {
+  return useQuery({
+    queryKey: ['pcm-knowledge-detail', projectId, knowledgeId],
+    queryFn: () => getPcmKnowledgeDetail(projectId as number, knowledgeId as string),
+    enabled: projectId !== null && knowledgeId !== null,
+  })
 }
 
 export type { ProjectRepository }
