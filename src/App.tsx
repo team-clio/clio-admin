@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CreateProjectInput } from "./api/projects";
 import {
   useCreateProject,
@@ -24,16 +24,55 @@ type Page =
   | "project-settings"
   | "system";
 
+const SELECTED_PROJECT_KEY = "clio.selectedProjectId";
+
+function readStoredProjectId(): number | null {
+  try {
+    const raw = window.localStorage.getItem(SELECTED_PROJECT_KEY);
+    if (raw === null) return null;
+    const value = Number(raw);
+    return Number.isInteger(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 function App() {
   const [page, setPage] = useState<Page>("reports");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
-    null,
+    readStoredProjectId,
   );
 
   const projectsQuery = useProjects();
-  const countsQuery = useSidebarCounts(selectedProjectId);
   const createProjectMutation = useCreateProject();
+
+  // 저장된 프로젝트가 서버에서 삭제된 경우에도 안전하도록,
+  // 로드된 프로젝트 목록에 존재하는 선택값만 유효한 것으로 취급한다.
+  const validSelectedProjectId =
+    projectsQuery.data === undefined
+      ? selectedProjectId
+      : projectsQuery.data.some((project) => project.id === selectedProjectId)
+        ? selectedProjectId
+        : null;
+
+  const countsQuery = useSidebarCounts(validSelectedProjectId);
+
+  // 선택한 프로젝트를 localStorage에 영속화해 새로고침 후에도 유지한다.
+  useEffect(() => {
+    try {
+      if (validSelectedProjectId === null) {
+        window.localStorage.removeItem(SELECTED_PROJECT_KEY);
+      } else {
+        window.localStorage.setItem(
+          SELECTED_PROJECT_KEY,
+          String(validSelectedProjectId),
+        );
+      }
+    } catch {
+      // localStorage를 사용할 수 없는 환경(비공개 모드 등)에서는 무시한다.
+    }
+  }, [validSelectedProjectId]);
 
   const handleCreateProject = async (input: CreateProjectInput) => {
     const project = await createProjectMutation.mutateAsync(input);
@@ -42,7 +81,7 @@ function App() {
   };
 
   const selectedProject =
-    projectsQuery.data?.find((project) => project.id === selectedProjectId) ??
+    projectsQuery.data?.find((project) => project.id === validSelectedProjectId) ??
     null;
 
   const navigate = (next: Page) => {
@@ -54,7 +93,7 @@ function App() {
     page,
     navigate,
     projects: projectsQuery.data ?? [],
-    selectedProjectId,
+    selectedProjectId: validSelectedProjectId,
     setSelectedProjectId,
     projectsLoading: projectsQuery.isPending,
     projectsError:
@@ -85,33 +124,33 @@ function App() {
         <main className="min-w-0 flex-1 lg:ml-60">
           {page === "reports" && (
             <ReportsPage
-              key={selectedProjectId ?? "none"}
-              projectId={selectedProjectId}
+              key={validSelectedProjectId ?? "none"}
+              projectId={validSelectedProjectId}
             />
           )}
           {page === "issues" && (
             <IssuesPage
-              key={selectedProjectId ?? "none"}
-              projectId={selectedProjectId}
+              key={validSelectedProjectId ?? "none"}
+              projectId={validSelectedProjectId}
             />
           )}
           {page === "mcp" && <McpPage />}
           {page === "pcm" && (
             <PcmInspectPage
-              key={selectedProjectId ?? "none"}
-              projectId={selectedProjectId}
+              key={validSelectedProjectId ?? "none"}
+              projectId={validSelectedProjectId}
             />
           )}
           {page === "project-settings" && (
             <ProjectSettingsPage
-              key={selectedProjectId ?? "none"}
+              key={validSelectedProjectId ?? "none"}
               project={selectedProject}
             />
           )}
           {page === "debug" && (
             <BugDebugPage
-              key={selectedProjectId ?? "none"}
-              projectId={selectedProjectId}
+              key={validSelectedProjectId ?? "none"}
+              projectId={validSelectedProjectId}
             />
           )}
           {page === "system" && <SystemSettingsPage />}
