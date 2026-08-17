@@ -17,3 +17,7 @@ storybook-static
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Generated reports
+docs/e2e
+
