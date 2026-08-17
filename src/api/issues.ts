@@ -70,17 +70,48 @@ export interface IssueAnalysisHypothesis {
 }
 
 export interface IssueAnalysisSnapshot {
+  issue_id: string
   status: IssueAnalysisStatus
-  confidence?: number
-  findings?: Array<string | { fact?: string; statement?: string }>
-  hypotheses?: Array<string | IssueAnalysisHypothesis>
-  evidence?: IssueAnalysisEvidence[]
-  warnings?: string[]
-  resolution_plan?: {
-    steps?: Array<string | { description?: string; title?: string }>
-    acceptance_criteria?: string[]
-    risks?: string[]
+  executive_summary: {
+    one_line: string
+    impact: string
+    confidence: number
   }
+  recommended_action?: {
+    title: string
+    rationale: string
+    targets?: Array<{ file_path: string; symbol?: string | null }>
+    complexity?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'UNKNOWN'
+  } | null
+  root_cause: string[]
+  verification_plan?: {
+    steps: string[]
+    acceptance_criteria: string[]
+  } | null
+  risks: Array<{ risk: string; mitigation: string }>
+  evidence?: IssueAnalysisEvidence[]
+  review: { required: boolean; reasons: string[] }
+  /** @deprecated retained only while old cached analysis responses are cleared */
+  confidence?: number
+  /** @deprecated retained only while old cached analysis responses are cleared */
+  findings?: Array<string | { fact?: string; statement?: string }>
+  /** @deprecated retained only while old cached analysis responses are cleared */
+  hypotheses?: Array<string | IssueAnalysisHypothesis>
+  /** @deprecated retained only while old cached analysis responses are cleared */
+  warnings?: string[]
+  /** @deprecated retained only while old cached analysis responses are cleared */
+  resolution_plan?: {
+    steps?: Array<string | { action?: string; details?: string; description?: string; title?: string }>
+    acceptance_criteria?: string[]
+    risks?: Array<string | { risk?: string; mitigation?: string }>
+  }
+  /** @deprecated retained only while old cached analysis responses are cleared */
+  risk_assessment?: {
+    risk_score?: number
+    priority?: Priority
+    rationale?: string
+    factors?: Array<{ name?: string; score?: number; rationale?: string }>
+  } | null
 }
 
 export interface LatestIssueAnalysis {

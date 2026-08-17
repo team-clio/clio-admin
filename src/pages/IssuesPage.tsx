@@ -10,6 +10,9 @@ import {
   FolderOpen,
   LoaderCircle,
   Search,
+  ShieldAlert,
+  Sparkles,
+  Target,
 } from "lucide-react";
 import { Fragment, type ReactNode, useMemo, useState } from "react";
 import {
@@ -412,6 +415,7 @@ function IssueDetailPanel({
         {activeTab === "overview" && (
           <>
             <IssueSummaryMarkdown markdown={detail.summary} />
+            <OverviewAnalysis analysis={issueAnalysis} loading={analysisLoading} />
             <dl className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
               <Info label="통합 버그" value={`${detail.bugCount}개`} />
               <Info
@@ -429,7 +433,7 @@ function IssueDetailPanel({
           </>
         )}
         {activeTab === "analysis" && (
-          <AnalysisSection
+          <CanonicalAnalysisSection
             analysis={issueAnalysis}
             loading={analysisLoading}
             includeEvidence={false}
@@ -809,6 +813,160 @@ function inlineMarkdown(value: string) {
     });
 }
 
+function OverviewAnalysis({
+  analysis,
+  loading,
+}: {
+  analysis: IssueAnalysisSnapshot | null;
+  loading: boolean;
+}) {
+  if (loading)
+    return (
+      <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <LoaderCircle className="animate-spin text-clio-600" size={18} />
+      </div>
+    );
+  if (!analysis) return null;
+  const review = analysis.review.required || analysis.status !== "COMPLETED";
+  const action = analysis.recommended_action;
+  return (
+    <section className="mt-6 rounded-2xl border border-clio-100 bg-clio-50/40 p-5">
+      <div className="flex items-start gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-clio-600 shadow-sm">
+          <Sparkles size={17} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[11px] font-bold tracking-wide text-clio-700">AI 결론</p>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${review ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+              {review ? "검토 필요" : "실행 가능"}
+            </span>
+          </div>
+          <h3 className="mt-1 text-sm font-extrabold leading-5 text-slate-900">
+            {analysis.executive_summary.one_line}
+          </h3>
+          <p className="mt-2 text-xs leading-5 text-slate-600">
+            {analysis.executive_summary.impact}
+          </p>
+          {action ? (
+            <div className="mt-4 rounded-xl border border-white bg-white p-3 shadow-sm">
+              <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                <Target size={13} className="text-clio-600" /> 추천 조치
+              </p>
+              <p className="mt-1 text-xs font-bold text-slate-800">{action.title}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {review && analysis.review.reasons.length ? (
+        <div className="mt-4 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+          {analysis.review.reasons.map((reason) => <p key={reason}>{reason}</p>)}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function CanonicalAnalysisSection({
+  analysis,
+  loading,
+  includeEvidence = true,
+}: {
+  analysis: IssueAnalysisSnapshot | null;
+  loading: boolean;
+  includeEvidence?: boolean;
+}) {
+  if (loading)
+    return (
+      <section className="mt-6">
+        <h3 className="text-xs font-bold text-slate-500">AI 분석</h3>
+        <LoaderCircle className="mx-auto mt-5 animate-spin text-clio-600" />
+      </section>
+    );
+  if (!analysis)
+    return (
+      <section className="mt-6">
+        <h3 className="text-xs font-bold text-slate-500">AI 분석</h3>
+        <p className="mt-2 text-xs text-slate-400">분석 결과가 없습니다.</p>
+      </section>
+    );
+  const action = analysis.recommended_action;
+  const review = analysis.review.required || analysis.status !== "COMPLETED";
+  return (
+    <section className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold tracking-wide text-clio-600">ANALYSIS</p>
+          <h3 className="mt-1 text-base font-extrabold text-slate-900">판단과 실행 계획</h3>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${review ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+          {review ? "검토 필요" : "분석 완료"}
+        </span>
+      </div>
+      <div className="rounded-2xl border border-clio-100 bg-clio-50/40 p-5">
+        <p className="text-xs font-bold text-clio-700">결론</p>
+        <h4 className="mt-2 text-sm font-extrabold leading-5 text-slate-900">
+          {analysis.executive_summary.one_line}
+        </h4>
+        <p className="mt-2 text-xs leading-5 text-slate-600">{analysis.executive_summary.impact}</p>
+        <p className="mt-3 text-[11px] font-bold text-slate-400">
+          신뢰도 {Math.round(analysis.executive_summary.confidence * 100)}%
+        </p>
+      </div>
+      {action ? (
+        <section>
+          <SectionHeading icon={<Target size={14} />} title="추천 조치" />
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-sm font-bold text-slate-800">{action.title}</p>
+            <p className="mt-2 text-xs leading-5 text-slate-600">{action.rationale}</p>
+            {action.targets?.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {action.targets.map((target) => (
+                  <code key={`${target.file_path}-${target.symbol ?? ""}`} className="rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
+                    {target.file_path}{target.symbol ? ` · ${target.symbol}` : ""}
+                  </code>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+      <AnalysisList title="근본 원인" values={analysis.root_cause} />
+      {analysis.verification_plan ? (
+        <section>
+          <SectionHeading title="검증 계획" />
+          <AnalysisList title="실행 단계" values={analysis.verification_plan.steps} />
+          <AnalysisList title="완료 기준" values={analysis.verification_plan.acceptance_criteria} />
+        </section>
+      ) : null}
+      {analysis.risks.length ? (
+        <section>
+          <SectionHeading icon={<ShieldAlert size={14} />} title="위험 및 완화책" />
+          <div className="space-y-2">
+            {analysis.risks.map((risk, index) => (
+              <div key={`${risk.risk}-${index}`} className="rounded-xl border border-amber-100 bg-amber-50/60 p-3 text-xs leading-5">
+                <p className="font-bold text-amber-900">{risk.risk}</p>
+                <p className="mt-1 text-amber-800">완화: {risk.mitigation}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {review && analysis.review.reasons.length ? (
+        <section className="rounded-xl bg-amber-50 p-4 text-xs leading-5 text-amber-800">
+          <p className="font-bold">사람이 확인해야 하는 항목</p>
+          {analysis.review.reasons.map((reason) => <p key={reason} className="mt-1">{reason}</p>)}
+        </section>
+      ) : null}
+      {includeEvidence && <CodeEvidence evidence={analysis.evidence ?? []} />}
+    </section>
+  );
+}
+
+function SectionHeading({ icon, title }: { icon?: ReactNode; title: string }) {
+  return <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-600">{icon}{title}</h4>;
+}
+
 function AnalysisSection({
   analysis,
   loading,
@@ -844,6 +1002,7 @@ function AnalysisSection({
       .filter(Boolean) ?? [];
   const hypotheses = analysis.hypotheses ?? [];
   const plan = analysis.resolution_plan;
+  const riskAssessment = analysis.risk_assessment;
 
   return (
     <section className="mt-6 border-t border-slate-200 pt-5">
@@ -908,7 +1067,12 @@ function AnalysisSection({
             ?.map((step) =>
               typeof step === "string"
                 ? step
-                : (step.description ?? step.title),
+                : step.action && step.details
+                  ? `${step.action}: ${step.details}`
+                  : (step.action ??
+                    step.details ??
+                    step.description ??
+                    step.title),
             )
             .filter(Boolean) ?? []
         }
@@ -917,10 +1081,80 @@ function AnalysisSection({
         title="완료 기준"
         values={plan?.acceptance_criteria ?? []}
       />
+      {plan?.risks?.length ? (
+        <div className="mt-4">
+          <h4 className="text-xs font-bold text-slate-600">예상 위험 및 완화책</h4>
+          <div className="mt-2 space-y-2">
+            {plan.risks.map((risk, index) => {
+              const text = typeof risk === "string" ? risk : risk.risk;
+              if (!text) return null;
+              return (
+                <div
+                  key={`${text}-${index}`}
+                  className="rounded-lg border border-amber-100 bg-amber-50/60 p-3 text-xs leading-5"
+                >
+                  <p className="font-semibold text-amber-900">{text}</p>
+                  {typeof risk !== "string" && risk.mitigation ? (
+                    <p className="mt-1 text-amber-800">
+                      완화: {risk.mitigation}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+      {riskAssessment ? (
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-xs font-bold text-slate-600">위험도 평가</h4>
+            <span className="text-xs font-bold text-slate-500">
+              {riskAssessment.risk_score === undefined
+                ? "—"
+                : `${riskAssessment.risk_score}점`}
+              {riskAssessment.priority ? ` · ${riskAssessment.priority}` : ""}
+            </span>
+          </div>
+          {riskAssessment.rationale ? (
+            <p className="mt-2 text-xs leading-5 text-slate-600">
+              {riskAssessment.rationale}
+            </p>
+          ) : null}
+          {riskAssessment.factors?.length ? (
+            <div className="mt-2 space-y-2">
+              {riskAssessment.factors.map((factor, index) => (
+                <div
+                  key={`${factor.name ?? "factor"}-${index}`}
+                  className="rounded-lg border border-slate-200 bg-white p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold text-slate-700">
+                      {factor.name ?? "평가 요인"}
+                    </p>
+                    {factor.score !== undefined ? (
+                      <span className="text-[11px] font-bold text-slate-400">
+                        {factor.score}점
+                      </span>
+                    ) : null}
+                  </div>
+                  {factor.rationale ? (
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {factor.rationale}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {includeEvidence && <CodeEvidence evidence={analysis.evidence ?? []} />}
     </section>
   );
 }
+
+void AnalysisSection;
 
 function AnalysisList({
   title,
