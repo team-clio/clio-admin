@@ -119,6 +119,80 @@ export interface LatestIssueAnalysis {
   workflowRunId: number
   issueAnalysis: IssueAnalysisSnapshot
 }
+
+/**
+ * 저장된 분석 결과에는 canonical 응답 계약 이전의 데이터가 남아 있을 수 있다.
+ * 화면은 하나의 계약만 다루도록 API 경계에서 표시용 기본값을 보완한다.
+ */
+function normalizeIssueAnalysis(analysis: IssueAnalysisSnapshot): IssueAnalysisSnapshot {
+  const firstFinding = analysis.findings?.[0]
+  const fallbackImpact =
+    typeof firstFinding === 'string'
+      ? firstFinding
+      : firstFinding?.fact ?? firstFinding?.statement ?? '분석 상세 정보를 확인하세요.'
+  const legacyHypotheses = (analysis.hypotheses ?? [])
+    .map((hypothesis) =>
+      typeof hypothesis === 'string'
+        ? hypothesis
+        : hypothesis.hypothesis ?? hypothesis.statement,
+    )
+    .filter((hypothesis): hypothesis is string => Boolean(hypothesis))
+  const legacySteps = (analysis.resolution_plan?.steps ?? [])
+    .map((step) => {
+      if (typeof step === 'string') return step
+      return step.action && step.details
+        ? `${step.action}: ${step.details}`
+        : step.action ?? step.details ?? step.description ?? step.title
+    })
+    .filter((step): step is string => Boolean(step))
+  const legacyRisks = (analysis.resolution_plan?.risks ?? [])
+    .map((risk) =>
+      typeof risk === 'string'
+        ? { risk, mitigation: '영향 범위와 회귀 여부를 검증하세요.' }
+        : risk.risk
+          ? { risk: risk.risk, mitigation: risk.mitigation ?? '영향 범위와 회귀 여부를 검증하세요.' }
+          : undefined,
+    )
+    .filter((risk): risk is { risk: string; mitigation: string } => Boolean(risk))
+  const firstPlanStep = analysis.resolution_plan?.steps?.[0]
+  const legacyAction =
+    typeof firstPlanStep === 'string'
+      ? { title: firstPlanStep, rationale: '분석 결과의 첫 번째 해결 단계입니다.' }
+      : firstPlanStep?.action
+        ? {
+            title: firstPlanStep.action,
+            rationale:
+              firstPlanStep.details ??
+              firstPlanStep.description ??
+              firstPlanStep.title ??
+              '분석 결과의 첫 번째 해결 단계입니다.',
+          }
+        : null
+
+  return {
+    ...analysis,
+    executive_summary: analysis.executive_summary ?? {
+      one_line: analysis.hypotheses?.[0] && typeof analysis.hypotheses[0] !== 'string'
+        ? analysis.hypotheses[0].hypothesis ?? '분석 결과'
+        : '분석 결과',
+      impact: fallbackImpact,
+      confidence: analysis.confidence ?? 0,
+    },
+    root_cause: analysis.root_cause?.length ? analysis.root_cause : legacyHypotheses,
+    recommended_action: analysis.recommended_action ?? legacyAction,
+    verification_plan: analysis.verification_plan ?? (legacySteps.length
+      ? {
+          steps: legacySteps,
+          acceptance_criteria: analysis.resolution_plan?.acceptance_criteria ?? [],
+        }
+      : null),
+    risks: analysis.risks?.length ? analysis.risks : legacyRisks,
+    review: analysis.review ?? {
+      required: analysis.status !== 'COMPLETED',
+      reasons: analysis.warnings ?? [],
+    },
+  }
+}
 export interface CodeEvidenceFile { repository_id: string; commit: string; path: string; start_line: number; end_line: number; content: string; citations: Array<{ evidence_id: string; start_line: number; end_line: number; observation?: string }> }
 export interface CodeEvidenceResponse { files: CodeEvidenceFile[]; available?: boolean }
 
@@ -136,10 +210,13 @@ export function getIssueStats(projectId: number) {
   return request<IssueStats>(`/external-api/v1/projects/${projectId}/issues/stats`)
 }
 
-export function getLatestIssueAnalysis(projectId: number, issueId: number) {
-  return request<LatestIssueAnalysis | null>(
+export async function getLatestIssueAnalysis(projectId: number, issueId: number) {
+  const result = await request<LatestIssueAnalysis | null>(
     `/external-api/v1/projects/${projectId}/issues/${issueId}/analysis-results/latest`,
   )
+  return result
+    ? { ...result, issueAnalysis: normalizeIssueAnalysis(result.issueAnalysis) }
+    : null
 }
 export function getCodeEvidence(projectId: number, issueId: number) { return request<CodeEvidenceResponse>(`/external-api/v1/projects/${projectId}/issues/${issueId}/analysis-results/latest/code-evidence`) }
 
