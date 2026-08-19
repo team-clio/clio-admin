@@ -29,6 +29,19 @@ export interface ProjectRepository {
   updatedAt: string;
 }
 
+export type ProjectDocumentSyncStatus =
+  "PENDING" | "SYNCING" | "SYNCED" | "FAILED" | "DELETING";
+
+export interface ProjectDocument {
+  id: number;
+  projectId: number;
+  title: string;
+  originalFilename: string;
+  mediaType: string;
+  syncStatus: ProjectDocumentSyncStatus;
+  createdAt: string;
+}
+
 export interface CreateProjectInput {
   name: string;
   description?: string;
@@ -102,5 +115,34 @@ export function deleteProjectRepository(
   return request<void>(
     `/api/v1/projects/${projectId}/repositories/${repositoryId}`,
     { method: "DELETE" },
+  );
+}
+
+export function getProjectDocuments(projectId: number) {
+  return request<{ items: ProjectDocument[] }>(
+    `/api/v1/projects/${projectId}/documents`,
+  ).then((response) => response.items);
+}
+
+export function createProjectDocument(
+  projectId: number,
+  title: string,
+  file: File,
+) {
+  const form = new FormData();
+  form.append("title", title);
+  form.append("file", file);
+  return request<ProjectDocument>(`/api/v1/projects/${projectId}/documents`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+export function deleteProjectDocument(projectId: number, documentId: number) {
+  return request<void>(
+    `/api/v1/projects/${projectId}/documents/${documentId}`,
+    {
+      method: "DELETE",
+    },
   );
 }
