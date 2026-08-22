@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import {
   useDeleteProjectRepository,
+  useDeleteProject,
   useCreateProjectDocument,
   useDeleteProjectDocument,
   useProjectDocuments,
@@ -389,7 +390,7 @@ function ProjectDocumentsSection({
   );
 }
 
-export function ProjectSettingsPage({ project }: { project: Project | null }) {
+export function ProjectSettingsPage({ project, onDeleted }: { project: Project | null; onDeleted: () => void }) {
   const [name, setName] = useState(project?.name ?? "");
   const [description, setDescription] = useState(project?.description ?? "");
   const [saved, setSaved] = useState(false);
@@ -403,6 +404,7 @@ export function ProjectSettingsPage({ project }: { project: Project | null }) {
   const updateProjectMutation = useUpdateProject(projectId);
   const saveRepositoryMutation = useSaveProjectRepository(projectId);
   const deleteRepositoryMutation = useDeleteProjectRepository(projectId);
+  const deleteProjectMutation = useDeleteProject(projectId);
   const documentsQuery = useProjectDocuments(projectId);
   const createDocumentMutation = useCreateProjectDocument(projectId);
   const deleteDocumentMutation = useDeleteProjectDocument(projectId);
@@ -483,6 +485,18 @@ export function ProjectSettingsPage({ project }: { project: Project | null }) {
     }
   };
 
+  const removeProject = async () => {
+    const confirmation = window.prompt(`영구 삭제하려면 프로젝트 이름 '${project.name}'을 입력하세요.`);
+    if (confirmation !== project.name) return;
+    setError("");
+    try {
+      await deleteProjectMutation.mutateAsync();
+      onDeleted();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "프로젝트를 삭제하지 못했습니다.");
+    }
+  };
+
   const uploadDocument = async (title: string, file: File) => {
     setError("");
     try {
@@ -533,6 +547,12 @@ export function ProjectSettingsPage({ project }: { project: Project | null }) {
             {displayError}
           </p>
         )}
+        <Surface className="border-rose-200">
+          <div className="flex flex-wrap items-center justify-between gap-4 p-6">
+            <div><h2 className="text-sm font-extrabold text-rose-700">위험 영역</h2><p className="mt-1 text-xs text-slate-500">버그, 이슈, 분석 결과와 연결 정보가 영구 삭제됩니다.</p></div>
+            <Button type="button" variant="secondary" disabled={deleteProjectMutation.isPending} onClick={removeProject} className="border-rose-200 text-rose-700 hover:bg-rose-50"><Trash2 size={14} />프로젝트 삭제</Button>
+          </div>
+        </Surface>
         <Surface className="overflow-hidden">
           <form onSubmit={saveProject}>
             <div className="border-b border-slate-100 p-6">

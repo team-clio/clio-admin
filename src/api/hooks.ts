@@ -21,6 +21,7 @@ import {
 } from "./issues";
 import {
   createProject,
+  deleteProject,
   createProjectRepository,
   createProjectDocument,
   deleteProjectDocument,
@@ -73,6 +74,14 @@ export function useUpdateProject(projectId: number | null) {
   return useMutation({
     mutationFn: (input: { name: string; description: string }) =>
       updateProject(projectId as number, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
+export function useDeleteProject(projectId: number | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => deleteProject(projectId as number),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 }

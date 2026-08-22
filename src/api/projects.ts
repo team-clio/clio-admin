@@ -81,6 +81,10 @@ export function updateProject(
   );
 }
 
+export function deleteProject(projectId: number) {
+  return request<void>(`/api/v1/projects/${projectId}`, { method: "DELETE" });
+}
+
 export function getProjectRepositories(projectId: number) {
   return request<{ items: ProjectRepository[] }>(
     `/api/v1/projects/${projectId}/repositories`,

@@ -145,6 +145,7 @@ function App() {
             <ProjectSettingsPage
               key={validSelectedProjectId ?? "none"}
               project={selectedProject}
+              onDeleted={() => { setSelectedProjectId(null); navigate("reports"); }}
             />
           )}
           {page === "debug" && (
