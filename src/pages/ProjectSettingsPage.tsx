@@ -11,14 +11,11 @@ import {
   Plus,
   RefreshCw,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 import {
   useDeleteProjectRepository,
   useDeleteProject,
-  useCreateProjectDocument,
-  useDeleteProjectDocument,
   useProjectDocuments,
   useProjectRepositories,
   useSaveProjectRepository,
@@ -26,7 +23,6 @@ import {
 } from "../api/hooks";
 import type {
   Project,
-  ProjectDocument,
   ProjectRepository,
   RepositoryInput,
   RepositoryProvider,
@@ -63,17 +59,6 @@ const syncStyle = {
   SYNCING: "bg-blue-50 text-blue-700",
   SYNCED: "bg-emerald-50 text-emerald-700",
   FAILED: "bg-rose-50 text-rose-700",
-};
-const documentSyncLabel = {
-  PENDING: "동기화 대기",
-  SYNCING: "동기화 중",
-  SYNCED: "동기화 완료",
-  FAILED: "동기화 실패",
-  DELETING: "삭제 동기화 중",
-};
-const documentSyncStyle = {
-  ...syncStyle,
-  DELETING: "bg-slate-100 text-slate-600",
 };
 
 function splitPaths(value: string) {
@@ -280,117 +265,7 @@ function RepositoryDialog({
   );
 }
 
-function ProjectDocumentsSection({
-  documents,
-  loading,
-  busy,
-  onUpload,
-  onDelete,
-}: {
-  documents: ProjectDocument[];
-  loading: boolean;
-  busy: boolean;
-  onUpload: (title: string, file: File) => Promise<void>;
-  onDelete: (document: ProjectDocument) => Promise<void>;
-}) {
-  const [title, setTitle] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!file || !title.trim()) return;
-    await onUpload(title.trim(), file);
-    setTitle("");
-    setFile(null);
-  };
-  return (
-    <Surface className="overflow-hidden">
-      <div className="border-b border-slate-100 p-6">
-        <h2 className="text-sm font-extrabold text-slate-800">프로젝트 문서</h2>
-        <p className="mt-1 text-xs text-slate-400">
-          PDF 또는 Markdown을 올리면 Agent가 프로젝트 맥락으로 반영합니다.
-        </p>
-      </div>
-      <form
-        onSubmit={submit}
-        className="grid gap-3 border-b border-slate-100 p-5 sm:grid-cols-[1fr_1.4fr_auto]"
-      >
-        <input
-          aria-label="문서 제목"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          className={inputClass.replace("mt-2 ", "")}
-          placeholder="문서 제목"
-          maxLength={200}
-        />
-        <input
-          aria-label="문서 파일"
-          type="file"
-          accept=".pdf,.md,.markdown,application/pdf,text/markdown"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          className="w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-bold file:text-slate-700"
-        />
-        <Button type="submit" disabled={busy || !title.trim() || !file}>
-          {busy ? (
-            <LoaderCircle size={14} className="animate-spin" />
-          ) : (
-            <Upload size={14} />
-          )}
-          업로드
-        </Button>
-      </form>
-      {loading ? (
-        <p className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500">
-          <LoaderCircle size={16} className="animate-spin" />
-          문서를 불러오는 중입니다.
-        </p>
-      ) : documents.length === 0 ? (
-        <div className="p-10 text-center">
-          <FileText className="mx-auto text-slate-300" size={30} />
-          <p className="mt-3 text-sm font-bold text-slate-700">
-            등록된 문서가 없습니다.
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            제품 요구사항, 설계 문서 등을 PDF 또는 Markdown으로 올려 주세요.
-          </p>
-        </div>
-      ) : (
-        <div className="divide-y divide-slate-100">
-          {documents.map((document) => (
-            <div key={document.id} className="flex items-center gap-3 p-5">
-              <FileText size={18} className="shrink-0 text-slate-400" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-extrabold text-slate-800">
-                    {document.title}
-                  </p>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${documentSyncStyle[document.syncStatus]}`}
-                  >
-                    {documentSyncLabel[document.syncStatus]}
-                  </span>
-                </div>
-                <p className="mt-1 truncate text-xs text-slate-400">
-                  {document.originalFilename} ·{" "}
-                  {new Date(document.createdAt).toLocaleString("ko-KR")}
-                </p>
-              </div>
-              <IconButton
-                disabled={busy || document.syncStatus === "DELETING"}
-                onClick={() => onDelete(document)}
-                aria-label={`${document.title} 삭제`}
-                className="hover:bg-rose-50 hover:text-rose-600"
-              >
-                <Trash2 size={16} />
-              </IconButton>
-            </div>
-          ))}
-        </div>
-      )}
-    </Surface>
-  );
-}
-
-export function ProjectSettingsPage({ project, onDeleted }: { project: Project | null; onDeleted: () => void }) {
+export function ProjectSettingsPage({ project, onDeleted, onOpenDocuments }: { project: Project | null; onDeleted: () => void; onOpenDocuments: () => void }) {
   const [name, setName] = useState(project?.name ?? "");
   const [description, setDescription] = useState(project?.description ?? "");
   const [saved, setSaved] = useState(false);
@@ -406,8 +281,6 @@ export function ProjectSettingsPage({ project, onDeleted }: { project: Project |
   const deleteRepositoryMutation = useDeleteProjectRepository(projectId);
   const deleteProjectMutation = useDeleteProject(projectId);
   const documentsQuery = useProjectDocuments(projectId);
-  const createDocumentMutation = useCreateProjectDocument(projectId);
-  const deleteDocumentMutation = useDeleteProjectDocument(projectId);
 
   if (!project)
     return (
@@ -497,33 +370,6 @@ export function ProjectSettingsPage({ project, onDeleted }: { project: Project |
     }
   };
 
-  const uploadDocument = async (title: string, file: File) => {
-    setError("");
-    try {
-      await createDocumentMutation.mutateAsync({ title, file });
-    } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "문서를 업로드하지 못했습니다.",
-      );
-    }
-  };
-
-  const removeDocument = async (document: ProjectDocument) => {
-    if (!window.confirm(`${document.title} 문서를 삭제할까요?`)) return;
-    setError("");
-    try {
-      await deleteDocumentMutation.mutateAsync(document.id);
-    } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "문서를 삭제하지 못했습니다.",
-      );
-    }
-  };
-
   return (
     <div className="animate-page">
       <PageHeader
@@ -603,13 +449,27 @@ export function ProjectSettingsPage({ project, onDeleted }: { project: Project |
             </div>
           </form>
         </Surface>
-        <ProjectDocumentsSection
-          documents={documentsQuery.data ?? []}
-          loading={documentsQuery.isPending}
-          busy={createDocumentMutation.isPending || deleteDocumentMutation.isPending}
-          onUpload={uploadDocument}
-          onDelete={removeDocument}
-        />
+        <Surface className="overflow-hidden">
+          <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-clio-50 text-clio-600">
+                <FileText size={19} />
+              </span>
+              <div>
+                <h2 className="text-sm font-extrabold text-slate-800">프로젝트 문서</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  {documentsQuery.isPending
+                    ? "문서 수를 확인하는 중입니다."
+                    : `${(documentsQuery.data?.length ?? 0).toLocaleString()}개 문서를 Agent 분석 맥락으로 사용합니다.`}
+                </p>
+              </div>
+            </div>
+            <Button type="button" variant="secondary" onClick={onOpenDocuments}>
+              문서 관리 열기
+              <ExternalLink size={14} />
+            </Button>
+          </div>
+        </Surface>
         <Surface className="overflow-hidden">
           <div className="flex flex-col gap-4 border-b border-slate-100 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div>

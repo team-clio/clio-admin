@@ -153,6 +153,7 @@ function App() {
             <ProjectSettingsPage
               key={validSelectedProjectId ?? "none"}
               project={selectedProject}
+              onOpenDocuments={() => navigate("documents")}
               onDeleted={() => { setSelectedProjectId(null); navigate("reports"); }}
             />
           )}
