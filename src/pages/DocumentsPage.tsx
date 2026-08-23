@@ -1,16 +1,46 @@
-import { FileText, LoaderCircle, Trash2 } from "lucide-react";
-import { useState } from "react";
 import {
+  CheckCircle2,
+  FileText,
+  LoaderCircle,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react";
+import { useRef, useState } from "react";
+import {
+  useCreateProjectDocument,
   useDeleteProjectDocument,
   useProjectDocuments,
 } from "../api/hooks";
 import type { Project, ProjectDocument } from "../api/projects";
 import {
+  Button,
   IconButton,
   NoProjectSelected,
   PageHeader,
   Surface,
 } from "../components/ui";
+
+type QueueStatus = "READY" | "UPLOADING" | "SUCCEEDED" | "FAILED";
+
+interface QueuedFile {
+  id: string;
+  file: File;
+  title: string;
+  status: QueueStatus;
+  error?: string;
+}
+
+const acceptedExtensions = [".pdf", ".md", ".markdown"];
+
+function titleFromFilename(filename: string) {
+  return filename.replace(/\.(pdf|md|markdown)$/i, "");
+}
+
+function isAcceptedFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return acceptedExtensions.some((extension) => lowerName.endsWith(extension));
+}
 
 const syncLabel = {
   PENDING: "동기화 대기",
@@ -100,9 +130,226 @@ function DocumentList({
   );
 }
 
+function UploadPanel({
+  onUpload,
+}: {
+  onUpload: (title: string, file: File) => Promise<unknown>;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const sequenceRef = useRef(0);
+  const [queue, setQueue] = useState<QueuedFile[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [validationError, setValidationError] = useState("");
+  const uploading = queue.some((item) => item.status === "UPLOADING");
+  const pendingCount = queue.filter(
+    (item) => item.status === "READY" || item.status === "FAILED",
+  ).length;
+
+  const addFiles = (files: File[]) => {
+    const accepted = files.filter(isAcceptedFile);
+    const rejected = files.length - accepted.length;
+    setValidationError(
+      rejected > 0
+        ? `지원하지 않는 파일 ${rejected}개를 제외했습니다. PDF 또는 Markdown만 올릴 수 있습니다.`
+        : "",
+    );
+    if (accepted.length === 0) return;
+    setQueue((current) => [
+      ...current,
+      ...accepted.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${sequenceRef.current++}`,
+        file,
+        title: titleFromFilename(file.name),
+        status: "READY" as const,
+      })),
+    ]);
+  };
+
+  const uploadAll = async () => {
+    if (uploading) return;
+    const targets = queue.filter(
+      (item) =>
+        (item.status === "READY" || item.status === "FAILED") &&
+        item.title.trim(),
+    );
+    for (const target of targets) {
+      setQueue((current) =>
+        current.map((item) =>
+          item.id === target.id
+            ? { ...item, status: "UPLOADING", error: undefined }
+            : item,
+        ),
+      );
+      try {
+        await onUpload(target.title.trim(), target.file);
+        setQueue((current) =>
+          current.map((item) =>
+            item.id === target.id ? { ...item, status: "SUCCEEDED" } : item,
+          ),
+        );
+      } catch (reason) {
+        setQueue((current) =>
+          current.map((item) =>
+            item.id === target.id
+              ? {
+                  ...item,
+                  status: "FAILED",
+                  error:
+                    reason instanceof Error
+                      ? reason.message
+                      : "업로드하지 못했습니다.",
+                }
+              : item,
+          ),
+        );
+      }
+    }
+  };
+
+  return (
+    <Surface className="overflow-hidden">
+      <div
+        className={`m-3 rounded-xl border-2 border-dashed px-5 py-9 text-center transition-colors sm:m-4 sm:py-11 ${
+          dragging
+            ? "border-clio-500 bg-clio-50"
+            : "border-slate-200 bg-slate-50/70 hover:border-slate-300"
+        }`}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+            setDragging(false);
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragging(false);
+          addFiles(Array.from(event.dataTransfer.files));
+        }}
+      >
+        <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-clio-600 shadow-sm ring-1 ring-slate-200">
+          <UploadCloud size={23} />
+        </span>
+        <h2 className="mt-4 text-sm font-extrabold text-slate-800">
+          파일을 이곳에 끌어 놓으세요
+        </h2>
+        <p className="mt-1.5 text-xs leading-5 text-slate-400">
+          PDF 또는 Markdown 파일을 여러 개 선택할 수 있습니다.
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-4"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          파일 선택
+        </Button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".pdf,.md,.markdown,application/pdf,text/markdown"
+          className="sr-only"
+          aria-label="업로드할 문서 선택"
+          onChange={(event) => {
+            addFiles(Array.from(event.target.files ?? []));
+            event.target.value = "";
+          }}
+        />
+      </div>
+      {validationError && (
+        <p role="alert" className="mx-4 mb-4 rounded-lg bg-amber-50 px-3 py-2.5 text-xs font-bold text-amber-700">
+          {validationError}
+        </p>
+      )}
+      {queue.length > 0 && (
+        <div className="border-t border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <div>
+              <p className="text-xs font-extrabold text-slate-700">
+                업로드 대기 목록 · {queue.length}개
+              </p>
+              <p aria-live="polite" className="mt-0.5 text-[11px] text-slate-400">
+                {uploading
+                  ? "파일을 순서대로 업로드하고 있습니다."
+                  : "제목을 확인한 뒤 업로드를 시작하세요."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              disabled={uploading || pendingCount === 0 || queue.some((item) => !item.title.trim())}
+              onClick={uploadAll}
+            >
+              {uploading ? <LoaderCircle size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+              {uploading ? "업로드 중" : `${pendingCount}개 업로드`}
+            </Button>
+          </div>
+          <div className="divide-y divide-slate-100 border-t border-slate-100">
+            {queue.map((item) => (
+              <div key={item.id} className="flex items-start gap-3 px-4 py-3 sm:px-5">
+                <span className="mt-2 text-slate-400">
+                  {item.status === "UPLOADING" ? (
+                    <LoaderCircle size={16} className="animate-spin text-clio-600" />
+                  ) : item.status === "SUCCEEDED" ? (
+                    <CheckCircle2 size={16} className="text-emerald-600" />
+                  ) : (
+                    <FileText size={16} />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <input
+                    value={item.title}
+                    maxLength={200}
+                    disabled={item.status === "UPLOADING" || item.status === "SUCCEEDED"}
+                    aria-label={`${item.file.name} 문서 제목`}
+                    onChange={(event) =>
+                      setQueue((current) =>
+                        current.map((queued) =>
+                          queued.id === item.id
+                            ? { ...queued, title: event.target.value }
+                            : queued,
+                        ),
+                      )
+                    }
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 outline-none transition focus:border-clio-500 focus:ring-2 focus:ring-blue-100 disabled:border-transparent disabled:bg-transparent disabled:px-0"
+                  />
+                  <p className={`mt-1 truncate text-[11px] ${item.status === "FAILED" ? "text-rose-600" : "text-slate-400"}`}>
+                    {item.status === "FAILED"
+                      ? item.error
+                      : item.status === "SUCCEEDED"
+                        ? `${item.file.name} · 업로드 완료`
+                        : item.file.name}
+                  </p>
+                </div>
+                <IconButton
+                  type="button"
+                  disabled={item.status === "UPLOADING"}
+                  aria-label={`${item.file.name} 대기 목록에서 제거`}
+                  onClick={() =>
+                    setQueue((current) =>
+                      current.filter((queued) => queued.id !== item.id),
+                    )
+                  }
+                >
+                  <X size={15} />
+                </IconButton>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Surface>
+  );
+}
+
 export function DocumentsPage({ project }: { project: Project | null }) {
   const projectId = project?.id ?? null;
   const documentsQuery = useProjectDocuments(projectId);
+  const createMutation = useCreateProjectDocument(projectId);
   const deleteMutation = useDeleteProjectDocument(projectId);
   const [error, setError] = useState("");
 
@@ -137,6 +384,9 @@ export function DocumentsPage({ project }: { project: Project | null }) {
     }
   };
 
+  const uploadDocument = (title: string, file: File) =>
+    createMutation.mutateAsync({ title, file });
+
   return (
     <div className="animate-page">
       <PageHeader
@@ -149,13 +399,7 @@ export function DocumentsPage({ project }: { project: Project | null }) {
         </span>
       </PageHeader>
       <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8">
-        <Surface className="overflow-hidden border-dashed">
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm font-extrabold text-slate-700">
-              업로드 영역을 준비하고 있습니다
-            </p>
-          </div>
-        </Surface>
+        <UploadPanel onUpload={uploadDocument} />
         <Surface className="overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
             <div>
