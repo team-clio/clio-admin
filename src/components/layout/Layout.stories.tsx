@@ -12,12 +12,12 @@ const demoProjects = [
 
 function PickerDemo() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(demoProjects[0].id)
-  return <div className="w-56"><ProjectPicker projects={demoProjects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} loading={false} loadError="" onCreateProject={async (input) => ({ ...demoProjects[0], id: 3, ...input, description: input.description ?? null })} /></div>
+  return <div className="w-56"><ProjectPicker projects={demoProjects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} loading={false} loadError="" onAddProject={() => {}} /></div>
 }
 
 function SidebarDemo({ page = 'reports' }: { page?: 'reports' | 'issues' | 'documents' | 'mcp' | 'system' }) {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(demoProjects[0].id)
-  return <div className="relative h-[720px] bg-[#f5f6f8]"><Sidebar page={page} navigate={() => {}} projects={demoProjects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} projectsLoading={false} projectsError="" onCreateProject={async (input) => ({ ...demoProjects[0], id: 3, ...input, description: input.description ?? null })} className="flex !absolute !bottom-0 !top-0" /></div>
+  return <div className="relative h-[720px] bg-[#f5f6f8]"><Sidebar page={page} navigate={() => {}} projects={demoProjects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} projectsLoading={false} projectsError="" onAddProject={() => {}} className="flex !absolute !bottom-0 !top-0" /></div>
 }
 
 export const ProjectSelector = { parameters: { layout: 'centered' }, render: () => <PickerDemo /> }

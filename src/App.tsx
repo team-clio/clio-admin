@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import type { CreateProjectInput } from "./api/projects";
 import {
-  useCreateProject,
   useProjects,
   useSidebarCounts,
 } from "./api/hooks";
@@ -15,6 +13,7 @@ import { BugDebugPage } from "./pages/BugDebugPage";
 import { ProjectSettingsPage } from "./pages/ProjectSettingsPage";
 import { PcmInspectPage } from "./pages/PcmInspectPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
+import { ProjectCreationPage } from "./pages/ProjectCreationPage";
 
 type Page =
   | "reports"
@@ -24,6 +23,7 @@ type Page =
   | "pcm"
   | "documents"
   | "project-settings"
+  | "project-create"
   | "system";
 
 const SELECTED_PROJECT_KEY = "clio.selectedProjectId";
@@ -45,9 +45,9 @@ function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     readStoredProjectId,
   );
+  const [creationDirty, setCreationDirty] = useState(false);
 
   const projectsQuery = useProjects();
-  const createProjectMutation = useCreateProject();
 
   // 저장된 프로젝트가 서버에서 삭제된 경우에도 안전하도록,
   // 로드된 프로젝트 목록에 존재하는 선택값만 유효한 것으로 취급한다.
@@ -76,17 +76,22 @@ function App() {
     }
   }, [validSelectedProjectId]);
 
-  const handleCreateProject = async (input: CreateProjectInput) => {
-    const project = await createProjectMutation.mutateAsync(input);
-    setSelectedProjectId(project.id);
-    return project;
-  };
-
   const selectedProject =
     projectsQuery.data?.find((project) => project.id === validSelectedProjectId) ??
     null;
 
   const navigate = (next: Page) => {
+    if (
+      page === "project-create" &&
+      next !== "project-create" &&
+      creationDirty &&
+      !window.confirm("작성 중인 프로젝트 정보가 사라집니다. 나갈까요?")
+    ) {
+      return;
+    }
+    if (page === "project-create" && next !== "project-create") {
+      setCreationDirty(false);
+    }
     setPage(next);
     setMobileOpen(false);
   };
@@ -100,7 +105,7 @@ function App() {
     projectsLoading: projectsQuery.isPending,
     projectsError:
       projectsQuery.error instanceof Error ? projectsQuery.error.message : "",
-    onCreateProject: handleCreateProject,
+    onAddProject: () => navigate("project-create"),
     counts: countsQuery.data ?? {},
   };
 
@@ -155,6 +160,12 @@ function App() {
               project={selectedProject}
               onOpenDocuments={() => navigate("documents")}
               onDeleted={() => { setSelectedProjectId(null); navigate("reports"); }}
+            />
+          )}
+          {page === "project-create" && (
+            <ProjectCreationPage
+              onCancel={() => navigate("reports")}
+              onDirtyChange={setCreationDirty}
             />
           )}
           {page === "debug" && (
