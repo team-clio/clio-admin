@@ -2,9 +2,9 @@ import { BrainCircuit, Bug, FileText, Files, FlaskConical, FolderCog, Link2, Ser
 import { IconButton } from '../ui'
 import { ProjectPicker } from './ProjectPicker'
 import type { ComponentType, Dispatch, SetStateAction } from 'react'
-import type { CreateProjectInput, Project } from '../../api/projects'
+import type { Project } from '../../api/projects'
 
-type Page = 'reports' | 'issues' | 'debug' | 'mcp' | 'pcm' | 'documents' | 'project-settings' | 'system'
+type Page = 'reports' | 'issues' | 'debug' | 'mcp' | 'pcm' | 'documents' | 'project-settings' | 'project-create' | 'system'
 
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>
 
@@ -43,10 +43,10 @@ function NavButton({ active = false, icon: Icon, label, count, onClick }: { acti
   return <button onClick={onClick} className={`group mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-all duration-200 ${active ? 'bg-clio-50 text-clio-700' : 'text-slate-600 hover:translate-x-0.5 hover:bg-slate-50'}`}><Icon size={17} strokeWidth={active ? 2.5 : 2} className="transition-transform duration-200 group-hover:scale-105" /><span>{label}</span>{count !== undefined && <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] transition-colors ${active ? 'bg-white text-clio-700' : 'bg-slate-100 text-slate-500'}`}>{count.toLocaleString()}</span>}</button>
 }
 
-export function Sidebar({ page, navigate, className = '', onClose, projects, selectedProjectId, setSelectedProjectId, projectsLoading, projectsError, onCreateProject, counts = {} }: { page: Page; navigate: (page: Page) => void; className?: string; onClose?: () => void; projects: Project[]; selectedProjectId: number | null; setSelectedProjectId: Dispatch<SetStateAction<number | null>>; projectsLoading: boolean; projectsError: string; onCreateProject: (input: CreateProjectInput) => Promise<Project>; counts?: { reports?: number; issues?: number } }) {
+export function Sidebar({ page, navigate, className = '', onClose, projects, selectedProjectId, setSelectedProjectId, projectsLoading, projectsError, onAddProject, counts = {} }: { page: Page; navigate: (page: Page) => void; className?: string; onClose?: () => void; projects: Project[]; selectedProjectId: number | null; setSelectedProjectId: Dispatch<SetStateAction<number | null>>; projectsLoading: boolean; projectsError: string; onAddProject: () => void; counts?: { reports?: number; issues?: number } }) {
   return (
     <aside className={`${className} fixed bottom-0 left-0 top-14 z-30 w-60 flex-col border-r border-slate-200 bg-white`}>
-      <div className="flex items-center gap-2 border-b border-slate-100 p-3"><ProjectPicker projects={projects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} loading={projectsLoading} loadError={projectsError} onCreateProject={onCreateProject} />{onClose && <IconButton className="shrink-0" onClick={onClose} aria-label="사이드바 닫기"><X size={18} /></IconButton>}</div>
+      <div className="flex items-center gap-2 border-b border-slate-100 p-3"><ProjectPicker projects={projects} selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId} loading={projectsLoading} loadError={projectsError} onAddProject={onAddProject} />{onClose && <IconButton className="shrink-0" onClick={onClose} aria-label="사이드바 닫기"><X size={18} /></IconButton>}</div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {navSections.map((section, index) => (
           <div key={section.title} className={index > 0 ? 'mt-7' : ''}>
