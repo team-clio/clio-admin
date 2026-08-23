@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import type { CreateProjectInput, Project } from "./api/projects";
 import {
+  useCreateProject,
   useProjects,
   useSidebarCounts,
 } from "./api/hooks";
@@ -48,6 +50,7 @@ function App() {
   const [creationDirty, setCreationDirty] = useState(false);
 
   const projectsQuery = useProjects();
+  const createProjectMutation = useCreateProject();
 
   // 저장된 프로젝트가 서버에서 삭제된 경우에도 안전하도록,
   // 로드된 프로젝트 목록에 존재하는 선택값만 유효한 것으로 취급한다.
@@ -80,6 +83,14 @@ function App() {
     projectsQuery.data?.find((project) => project.id === validSelectedProjectId) ??
     null;
 
+  const handleCreateProject = (input: CreateProjectInput) =>
+    createProjectMutation.mutateAsync(input);
+
+  const handleProjectCreated = (project: Project) => {
+    setSelectedProjectId(project.id);
+    setCreationDirty(false);
+  };
+
   const navigate = (next: Page) => {
     if (
       page === "project-create" &&
@@ -92,6 +103,12 @@ function App() {
     if (page === "project-create" && next !== "project-create") {
       setCreationDirty(false);
     }
+    setPage(next);
+    setMobileOpen(false);
+  };
+
+  const finishProjectCreation = (next: "reports" | "project-settings") => {
+    setCreationDirty(false);
     setPage(next);
     setMobileOpen(false);
   };
@@ -166,6 +183,10 @@ function App() {
             <ProjectCreationPage
               onCancel={() => navigate("reports")}
               onDirtyChange={setCreationDirty}
+              onCreateProject={handleCreateProject}
+              onProjectCreated={handleProjectCreated}
+              onFinish={() => finishProjectCreation("reports")}
+              onOpenSettings={() => finishProjectCreation("project-settings")}
             />
           )}
           {page === "debug" && (
