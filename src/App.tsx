@@ -14,6 +14,7 @@ import { SystemSettingsPage } from "./pages/SystemSettingsPage";
 import { BugDebugPage } from "./pages/BugDebugPage";
 import { ProjectSettingsPage } from "./pages/ProjectSettingsPage";
 import { PcmInspectPage } from "./pages/PcmInspectPage";
+import { DocumentsPage } from "./pages/DocumentsPage";
 
 type Page =
   | "reports"
@@ -21,6 +22,7 @@ type Page =
   | "debug"
   | "mcp"
   | "pcm"
+  | "documents"
   | "project-settings"
   | "system";
 
@@ -139,6 +141,12 @@ function App() {
             <PcmInspectPage
               key={validSelectedProjectId ?? "none"}
               projectId={validSelectedProjectId}
+            />
+          )}
+          {page === "documents" && (
+            <DocumentsPage
+              key={validSelectedProjectId ?? "none"}
+              project={selectedProject}
             />
           )}
           {page === "project-settings" && (

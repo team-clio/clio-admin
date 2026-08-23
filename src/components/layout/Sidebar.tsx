@@ -1,10 +1,10 @@
-import { BrainCircuit, Bug, FileText, FlaskConical, FolderCog, Link2, Server, X } from 'lucide-react'
+import { BrainCircuit, Bug, FileText, Files, FlaskConical, FolderCog, Link2, Server, X } from 'lucide-react'
 import { IconButton } from '../ui'
 import { ProjectPicker } from './ProjectPicker'
 import type { ComponentType, Dispatch, SetStateAction } from 'react'
 import type { CreateProjectInput, Project } from '../../api/projects'
 
-type Page = 'reports' | 'issues' | 'debug' | 'mcp' | 'pcm' | 'project-settings' | 'system'
+type Page = 'reports' | 'issues' | 'debug' | 'mcp' | 'pcm' | 'documents' | 'project-settings' | 'system'
 
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>
 
@@ -25,9 +25,15 @@ const navSections: Array<{ title: string; items: Array<{ id: Page; label: string
     ],
   },
   {
+    title: '프로젝트',
+    items: [
+      { id: 'documents', label: '문서', icon: Files },
+      { id: 'project-settings', label: '프로젝트 설정', icon: FolderCog },
+    ],
+  },
+  {
     title: '설정',
     items: [
-      { id: 'project-settings', label: '프로젝트 설정', icon: FolderCog },
       { id: 'system', label: '시스템 설정', icon: Server },
     ],
   },
