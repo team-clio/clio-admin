@@ -130,7 +130,7 @@ function DocumentList({
   );
 }
 
-function UploadPanel({
+export function UploadPanel({
   onUpload,
 }: {
   onUpload: (title: string, file: File) => Promise<unknown>;
