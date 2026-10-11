@@ -2,6 +2,15 @@
 
 이 문서는 `../clio-server`의 현재 API 계약을 기준으로 Admin 화면에서 변경된 부분을 기록한다.
 
+## 처리 실패 재시도와 저장소 재동기화
+
+- 버그 리포트 상세에서 상태가 `FAILED`면 "다시 처리" 버튼을 보여 주고 `POST .../bugs/{bugId}/retry`를 호출한다.
+  서버 오류(예: 동기화 실패 저장소가 있어 409)는 상세 패널에 표시한다.
+- 프로젝트 설정의 저장소 목록에서 활성 저장소가 `FAILED` 또는 `SYNCED`면 "다시 동기화" 버튼을 보여 주고
+  `POST /api/v1/projects/{projectId}/repositories/{repositoryId}/sync`를 호출한다.
+- 처리 중인 버그(`NEW`, `ANALYZING`)나 동기화 중인 저장소(`PENDING`, `SYNCING`)가 있으면 목록을 5초마다 다시 조회해
+  상태 변화를 보여 준다.
+
 ## 매칭 검토 화면
 
 - 사이드바 `이슈 관리 > 매칭 검토`에서 `GET /external-api/v1/projects/{projectId}/bug-reviews` 결과를 표시한다.

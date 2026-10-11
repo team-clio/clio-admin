@@ -18,6 +18,7 @@ import {
   useDeleteProject,
   useProjectDocuments,
   useProjectRepositories,
+  useResyncProjectRepository,
   useSaveProjectRepository,
   useUpdateProject,
 } from "../api/hooks";
@@ -279,6 +280,7 @@ export function ProjectSettingsPage({ project, onDeleted, onOpenDocuments }: { p
   const updateProjectMutation = useUpdateProject(projectId);
   const saveRepositoryMutation = useSaveProjectRepository(projectId);
   const deleteRepositoryMutation = useDeleteProjectRepository(projectId);
+  const resyncRepositoryMutation = useResyncProjectRepository(projectId);
   const deleteProjectMutation = useDeleteProject(projectId);
   const documentsQuery = useProjectDocuments(projectId);
 
@@ -335,6 +337,19 @@ export function ProjectSettingsPage({ project, onDeleted, onOpenDocuments }: { p
         reason instanceof Error
           ? reason.message
           : "레포지토리를 저장하지 못했습니다.",
+      );
+    }
+  };
+
+  const resyncRepository = async (repository: ProjectRepository) => {
+    setError("");
+    try {
+      await resyncRepositoryMutation.mutateAsync(repository.id);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "레포지토리를 다시 동기화하지 못했습니다.",
       );
     }
   };
@@ -543,6 +558,23 @@ export function ProjectSettingsPage({ project, onDeleted, onOpenDocuments }: { p
                     </p>
                   </div>
                   <div className="flex gap-1">
+                    {repository.enabled &&
+                      (repository.syncStatus === "FAILED" ||
+                        repository.syncStatus === "SYNCED") && (
+                        <IconButton
+                          onClick={() => resyncRepository(repository)}
+                          disabled={resyncRepositoryMutation.isPending}
+                          aria-label="다시 동기화"
+                          title="다시 동기화"
+                          className={
+                            repository.syncStatus === "FAILED"
+                              ? "text-rose-500 hover:bg-rose-50 hover:text-rose-600"
+                              : ""
+                          }
+                        >
+                          <RefreshCw size={16} />
+                        </IconButton>
+                      )}
                     <IconButton
                       onClick={() =>
                         window.open(
@@ -575,7 +607,7 @@ export function ProjectSettingsPage({ project, onDeleted, onOpenDocuments }: { p
           )}
           <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4 text-[11px] text-slate-400">
             <RefreshCw size={13} />
-            동기화는 서버에서 연결 확인 후 자동으로 시작됩니다.
+            동기화는 서버에서 연결 확인 후 자동으로 시작됩니다. 실패했거나 최신 커밋을 반영하려면 다시 동기화를 누르세요.
           </div>
         </Surface>
       </div>
