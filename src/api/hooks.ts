@@ -6,7 +6,11 @@ import {
 } from "@tanstack/react-query";
 import {
   createBug,
+  createIssueFromReview,
+  getBugReviews,
   getBugs,
+  ignoreBug,
+  linkReviewedBug,
   type BugSearchParams,
   type CreateBugRequest,
 } from "./bugs";
@@ -49,11 +53,16 @@ export function useSidebarCounts(projectId: number | null) {
   return useQuery({
     queryKey: ["sidebar-counts", projectId],
     queryFn: async () => {
-      const [bugs, issues] = await Promise.all([
+      const [bugs, issues, reviews] = await Promise.all([
         getBugs(projectId as number, { page: 0, size: 1 }),
         getIssueStats(projectId as number),
+        getBugReviews(projectId as number),
       ]);
-      return { reports: bugs.totalElements, issues: issues.totalIssues };
+      return {
+        reports: bugs.totalElements,
+        issues: issues.totalIssues,
+        reviews: reviews.length,
+      };
     },
     enabled: projectId !== null,
   });
@@ -294,3 +303,41 @@ export function usePcmKnowledgeDetail(
 }
 
 export type { ProjectDocument, ProjectRepository };
+
+/** 매칭 검토 대기 버그 */
+export function useBugReviews(projectId: number | null) {
+  return useQuery({
+    queryKey: ["bug-reviews", projectId],
+    queryFn: () => getBugReviews(projectId as number),
+    enabled: projectId !== null,
+  });
+}
+
+export type BugReviewDecision =
+  | { bugId: number; action: "link"; issueId: number }
+  | { bugId: number; action: "create-issue" }
+  | { bugId: number; action: "ignore" };
+
+/** 검토 결정(기존 이슈 연결·새 이슈·무시)을 반영하고 관련 목록을 새로고친다 */
+export function useResolveBugReview(projectId: number | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (decision: BugReviewDecision): Promise<void> => {
+      const id = projectId as number;
+      if (decision.action === "link") {
+        await linkReviewedBug(id, decision.bugId, decision.issueId);
+      } else if (decision.action === "create-issue") {
+        await createIssueFromReview(id, decision.bugId);
+      } else {
+        await ignoreBug(id, decision.bugId);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bug-reviews", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["issue-stats", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-counts", projectId] });
+    },
+  });
+}

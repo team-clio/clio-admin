@@ -4,9 +4,9 @@ import { useBugs } from '../api/hooks'
 import type { BugSummary, BugStatus, Severity } from '../api/bugs'
 import { Button, IconButton, NoProjectSelected, PageHeader, Surface } from '../components/ui'
 
-const statusLabel: Record<BugStatus, string> = { NEW: '새 리포트', ANALYZING: '분석 중', TRIAGED: '분류 완료', RESOLVED: '해결됨', IGNORED: '무시됨' }
+const statusLabel: Record<BugStatus, string> = { NEW: '새 리포트', ANALYZING: '분석 중', FAILED: '처리 실패', NEEDS_REVIEW: '매칭 검토', TRIAGED: '분류 완료', RESOLVED: '해결됨', IGNORED: '무시됨' }
 const statusStyle: Record<BugStatus, string> = {
-  NEW: 'bg-violet-50 text-violet-700', ANALYZING: 'bg-blue-50 text-blue-700', TRIAGED: 'bg-emerald-50 text-emerald-700', RESOLVED: 'bg-slate-100 text-slate-600', IGNORED: 'bg-slate-100 text-slate-400',
+  NEW: 'bg-violet-50 text-violet-700', ANALYZING: 'bg-blue-50 text-blue-700', FAILED: 'bg-rose-50 text-rose-700', NEEDS_REVIEW: 'bg-amber-50 text-amber-700', TRIAGED: 'bg-emerald-50 text-emerald-700', RESOLVED: 'bg-slate-100 text-slate-600', IGNORED: 'bg-slate-100 text-slate-400',
 }
 const severityLabel: Record<Severity, string> = { CRITICAL: '긴급', HIGH: '높음', MEDIUM: '보통', LOW: '낮음' }
 const severityDot: Record<Severity, string> = { CRITICAL: 'bg-rose-500', HIGH: 'bg-orange-500', MEDIUM: 'bg-amber-500', LOW: 'bg-slate-300' }
