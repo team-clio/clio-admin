@@ -112,6 +112,14 @@ export function updateProjectRepository(
   );
 }
 
+/** 실패했거나 이미 동기화된 저장소의 전체 snapshot을 다시 만든다 (FAILED·SYNCED만 허용) */
+export function resyncProjectRepository(projectId: number, repositoryId: number) {
+  return request<ProjectRepository>(
+    `/api/v1/projects/${projectId}/repositories/${repositoryId}/sync`,
+    { method: "POST" },
+  );
+}
+
 export function deleteProjectRepository(
   projectId: number,
   repositoryId: number,

@@ -98,3 +98,11 @@ export function ignoreBug(projectId: number, bugId: number) {
     jsonOptions('PATCH', { status: 'IGNORED' }),
   )
 }
+
+/** Agent 처리에 실패한(FAILED) 버그를 다시 처리 대기열에 넣는다 */
+export function retryBug(projectId: number, bugId: number) {
+  return request<{ id: number; status: BugStatus }>(
+    `/external-api/v1/projects/${projectId}/bugs/${bugId}/retry`,
+    { method: 'POST' },
+  )
+}

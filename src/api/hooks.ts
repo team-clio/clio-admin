@@ -11,6 +11,7 @@ import {
   getBugs,
   ignoreBug,
   linkReviewedBug,
+  retryBug,
   type BugSearchParams,
   type CreateBugRequest,
 } from "./bugs";
@@ -33,6 +34,7 @@ import {
   getProjectDocuments,
   getProjectRepositories,
   getProjects,
+  resyncProjectRepository,
   updateProject,
   updateProjectRepository,
   type CreateProjectInput,
@@ -104,6 +106,23 @@ export function useBugs(projectId: number | null, params: BugSearchParams) {
     queryFn: () => getBugs(projectId as number, { page, size }),
     enabled: projectId !== null,
     placeholderData: keepPreviousData,
+    // 처리 중인 버그가 있으면 상태 변화를 보이도록 주기적으로 다시 조회한다.
+    refetchInterval: (query) =>
+      query.state.data?.items.some((bug) => bug.status === "NEW" || bug.status === "ANALYZING")
+        ? 5000
+        : false,
+  });
+}
+
+/** 처리 실패 버그 재시도 */
+export function useRetryBug(projectId: number | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (bugId: number) => retryBug(projectId as number, bugId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-counts", projectId] });
+    },
   });
 }
 
@@ -198,6 +217,22 @@ export function useProjectRepositories(projectId: number | null) {
     queryKey: ["repositories", projectId],
     queryFn: () => getProjectRepositories(projectId as number),
     enabled: projectId !== null,
+    // 동기화가 진행 중인 저장소가 있으면 완료·실패를 보이도록 주기적으로 다시 조회한다.
+    refetchInterval: (query) =>
+      query.state.data?.some(
+        (repository) => repository.syncStatus === "PENDING" || repository.syncStatus === "SYNCING",
+      )
+        ? 5000
+        : false,
+  });
+}
+
+/** 저장소 재동기화 */
+export function useResyncProjectRepository(projectId: number | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (repositoryId: number) => resyncProjectRepository(projectId as number, repositoryId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["repositories", projectId] }),
   });
 }
 
