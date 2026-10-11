@@ -2,6 +2,16 @@
 
 이 문서는 `../clio-server`의 현재 API 계약을 기준으로 Admin 화면에서 변경된 부분을 기록한다.
 
+## 매칭 검토 화면
+
+- 사이드바 `이슈 관리 > 매칭 검토`에서 `GET /external-api/v1/projects/{projectId}/bug-reviews` 결과를 표시한다.
+  사이드바에는 검토 대기 건수를 함께 보여 준다.
+- 버그마다 Agent가 제안한 후보 이슈, 신뢰도, 판단 근거를 보여 주고 세 가지 결정을 제공한다.
+  - 후보 이슈에 연결: `POST .../bug-reviews/{bugId}/link`
+  - 새 이슈로 분석: `POST .../bug-reviews/{bugId}/create-issue` (저장소가 모두 동기화되어 있어야 한다)
+  - 무시: `PATCH .../bugs/{bugId}`로 `IGNORED`
+- 결정 후 검토 목록, 버그·이슈 목록, 사이드바 건수를 새로고친다. 실패하면 서버 메시지를 화면 상단에 표시한다.
+
 ## 프로젝트 문서 관리 화면
 
 - 프로젝트 문서 관리를 프로젝트 설정에서 독립 화면으로 옮기고 사이드바의
@@ -27,7 +37,7 @@
 - mock 리포트를 제거하고 `GET /external-api/v1/projects/{projectId}/bugs` 결과를 표시한다.
 - 서버의 페이지 응답(`items`, `page`, `totalElements`, `totalPages`)에 맞춰 이전/다음 페이지 이동을 연결했다.
 - 서버 enum을 다음과 같이 화면 표시값으로 변환한다.
-  - 상태: `NEW`, `ANALYZING`, `TRIAGED`, `RESOLVED`, `IGNORED`
+  - 상태: `NEW`, `ANALYZING`, `FAILED`(처리 실패), `NEEDS_REVIEW`(매칭 검토), `TRIAGED`, `RESOLVED`, `IGNORED`
   - 심각도: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
   - 소스: `API`, `SENTRY`, `LOG`, `MANUAL`, `IN_APP_WIDGET`, `CUSTOMER_SUPPORT`, `EMAIL`, `SLACK`
 - 서버 목록 응답에 없는 제보자, 사용자 원문, 실행 환경, 재현 단계는 화면에서 제거했다.

@@ -1,6 +1,7 @@
 import { IssuesPage } from './IssuesPage'
 import { McpPage } from './McpPage'
 import { ReportsPage } from './ReportsPage'
+import { BugReviewsPage } from './BugReviewsPage'
 import { SystemSettingsPage } from './SystemSettingsPage'
 import { BugDebugPage } from './BugDebugPage'
 import { PcmInspectPage } from './PcmInspectPage'
@@ -8,6 +9,7 @@ import { PcmInspectPage } from './PcmInspectPage'
 export default { title: 'Pages/Clio Admin', parameters: { layout: 'fullscreen' } }
 
 export const BugReports = { render: () => <ReportsPage projectId={null} /> }
+export const MatchReviews = { render: () => <BugReviewsPage projectId={null} /> }
 export const Issues = { render: () => <IssuesPage projectId={null} /> }
 export const McpIntegration = { render: () => <McpPage /> }
 export const SystemSettings = { render: () => <SystemSettingsPage /> }

@@ -1,6 +1,6 @@
 import { jsonOptions, request, type PageResponse } from './client'
 
-export type BugStatus = 'NEW' | 'ANALYZING' | 'TRIAGED' | 'RESOLVED' | 'IGNORED'
+export type BugStatus = 'NEW' | 'ANALYZING' | 'FAILED' | 'NEEDS_REVIEW' | 'TRIAGED' | 'RESOLVED' | 'IGNORED'
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
 export interface BugSummary {
@@ -57,4 +57,44 @@ export function getBugs(projectId: number, params: BugSearchParams = {}) {
   })
   const suffix = query.size ? `?${query}` : ''
   return request<PageResponse<BugSummary>>(`/external-api/v1/projects/${projectId}/bugs${suffix}`)
+}
+
+/** 매칭이 확신하지 못해 사람의 연결 판단을 기다리는 버그와 Agent가 제안한 후보 Issue */
+export interface BugReview {
+  bug_id: number
+  title: string
+  source: string
+  error_type: string | null
+  occurred_at: string
+  candidate_issue_id: number | null
+  candidate_issue_title: string | null
+  candidate_issue_status: string | null
+  confidence: number | null
+  reason: string | null
+  workflow_run_id: number | null
+}
+
+export function getBugReviews(projectId: number) {
+  return request<BugReview[]>(`/external-api/v1/projects/${projectId}/bug-reviews`)
+}
+
+export function linkReviewedBug(projectId: number, bugId: number, issueId: number) {
+  return request<{ issue_id: number; bug_id: number }>(
+    `/external-api/v1/projects/${projectId}/bug-reviews/${bugId}/link`,
+    jsonOptions('POST', { issue_id: issueId }),
+  )
+}
+
+export function createIssueFromReview(projectId: number, bugId: number) {
+  return request<{ id: number; status: BugStatus }>(
+    `/external-api/v1/projects/${projectId}/bug-reviews/${bugId}/create-issue`,
+    { method: 'POST' },
+  )
+}
+
+export function ignoreBug(projectId: number, bugId: number) {
+  return request<{ id: number; status: BugStatus }>(
+    `/external-api/v1/projects/${projectId}/bugs/${bugId}`,
+    jsonOptions('PATCH', { status: 'IGNORED' }),
+  )
 }
