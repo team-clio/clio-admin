@@ -67,6 +67,8 @@ export function useSidebarCounts(projectId: number | null) {
       };
     },
     enabled: projectId !== null,
+    // 백그라운드 처리 결과(검토 대기 등)가 메뉴 건수에 반영되도록 주기적으로 다시 조회한다.
+    refetchInterval: 15000,
   });
 }
 
