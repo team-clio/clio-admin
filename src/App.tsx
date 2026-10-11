@@ -10,6 +10,7 @@ import { TopBar } from "./components/layout/TopBar";
 import { IssuesPage } from "./pages/IssuesPage";
 import { McpPage } from "./pages/McpPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { BugReviewsPage } from "./pages/BugReviewsPage";
 import { SystemSettingsPage } from "./pages/SystemSettingsPage";
 import { BugDebugPage } from "./pages/BugDebugPage";
 import { ProjectSettingsPage } from "./pages/ProjectSettingsPage";
@@ -19,6 +20,7 @@ import { ProjectCreationPage } from "./pages/ProjectCreationPage";
 
 type Page =
   | "reports"
+  | "reviews"
   | "issues"
   | "debug"
   | "mcp"
@@ -148,6 +150,12 @@ function App() {
         <main className="min-w-0 flex-1 lg:ml-60">
           {page === "reports" && (
             <ReportsPage
+              key={validSelectedProjectId ?? "none"}
+              projectId={validSelectedProjectId}
+            />
+          )}
+          {page === "reviews" && (
+            <BugReviewsPage
               key={validSelectedProjectId ?? "none"}
               projectId={validSelectedProjectId}
             />
