@@ -130,9 +130,14 @@ export function useRetryBug(projectId: number | null) {
 
 /** 버그 등록 */
 export function useCreateBug(projectId: number | null) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateBugRequest) =>
       createBug(projectId as number, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bugs", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-counts", projectId] });
+    },
   });
 }
 
